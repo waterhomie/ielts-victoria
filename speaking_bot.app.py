@@ -3,6 +3,7 @@ from openai import OpenAI
 from gtts import gTTS
 import io
 import base64
+import time
 
 # --- CONFIGURATION ---
 API_KEY = "sk-G8Q0c6064d94bb663ba726b7d6564ea3807451c218atKtqS"
@@ -11,81 +12,105 @@ BASE_URL = "https://api.gptsapi.net/v1"
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
 # --- WEB APP SETUP ---
-st.set_page_config(page_title="IELTS Victoria", page_icon="🎓", layout="centered")
-st.title("🎓 Examiner Victoria")
-st.caption("Tip: Keep your answers under 1 minute for the fastest performance.")
+st.set_page_config(page_title="IELTS Victoria Pro", page_icon="🎓", layout="centered")
 
-# --- THE FIXED PERSONA ---
-# I have hardcoded her name here so she doesn't use placeholders.
-# --- THE UPDATED SYSTEM PROMPT ---
+# Custom CSS for a cleaner look
+st.markdown("""
+    <style>
+    .stChatFloatingInputContainer {padding-bottom: 20px;}
+    .report-box {background-color: #f0f2f6; padding: 20px; border-radius: 10px; border: 1px solid #d1d5db;}
+    </style>
+    """, unsafe_allow_html=True)
+
+st.title("🎓 Examiner Victoria (Pro)")
+st.caption("Professional IELTS Speaking Simulator with Band Scoring")
+
+# --- THE UPGRADED PERSONA ---
 system_prompt = """
-Your name is Victoria. You are a professional, senior IELTS Speaking Examiner from London.
-You are strict but fair.
+Your name is Victoria. You are a senior, strict IELTS Examiner from London.
 
-CRITICAL INSTRUCTIONS FOR FEEDBACK:
-1. IGNORE all capitalization, punctuation, and spelling errors. (The user is using Speech-to-Text; these are not their mistakes).
-2. ONLY provide feedback on spoken performance:
-   - Grammar (e.g., Verb tenses, word order).
-   - Vocabulary (e.g., Suggesting more advanced/precise synonyms).
-   - Sentence structure and Fluency.
-3. Keep corrections very brief (1 sentence) before asking the next question.
+RULES FOR FEEDBACK:
+1. NEVER correct capitalization, punctuation, or spelling. 
+2. ONLY correct spoken grammar, vocabulary choice, and fluency.
+3. Keep feedback to ONE sentence so the test flows naturally.
 
-CONDUCT THE TEST IN 3 PARTS:
-1. Part 1: Small talk questions.
-2. Part 2: Give the user a Topic Card (cue card) and ask them to speak for 1-2 minutes.
-3. Part 3: Deep discussion related to the Part 2 topic.
+TEST STRUCTURE:
+- Part 1: Introduction (3-4 mins).
+- Part 2: Cue Card. Give the topic and tell them to speak for 2 minutes.
+- Part 3: Deep discussion (4-5 mins).
 
-Start now by saying: "Good afternoon. My name is Victoria, and I will be your examiner today. To begin, could you tell me your full name, please?"
+SCORING RULE:
+If the user clicks the "End Test" button, you will be asked to provide a Final Report.
 """
-# --- MEMORY (SESSION STATE) ---
+
+# --- AUDIO FUNCTION ---
+def speak_text(text):
+    clean_text = text.replace("*", "").replace("#", "").replace("- ", "")
+    tts = gTTS(text=clean_text, lang='en', tld='co.uk')
+    fp = io.BytesIO()
+    tts.write_to_fp(fp)
+    fp.seek(0)
+    b64 = base64.b64encode(fp.read()).decode()
+    audio_html = f'<audio src="data:audio/mp3;base64,{b64}" controls autoplay style="width:100%;"></audio>'
+    st.markdown(audio_html, unsafe_allow_html=True)
+
+# --- SESSION STATE ---
 if "messages" not in st.session_state:
-    st.session_state.messages = list()
-    st.session_state.messages.append({"role": "system", "content": system_prompt})
-    
-    # First message is now pre-set to speed up the very first load
-    first_msg = "Good afternoon. My name is Victoria, and I will be your examiner today. To begin, could you tell me your full name, please?"
+    st.session_state.messages = [{"role": "system", "content": system_prompt}]
+    first_msg = "Good afternoon. My name is Victoria. I will be your examiner today. Can you tell me your full name, please?"
     st.session_state.messages.append({"role": "assistant", "content": first_msg})
+    st.session_state.test_active = True
+
+# --- SIDEBAR TOOLS ---
+with st.sidebar:
+    st.header("Exam Tools")
+    if st.button("⏱️ Start Part 2 Timer (120s)"):
+        timer_placeholder = st.empty()
+        for i in range(120, 0, -1):
+            timer_placeholder.metric("Time Remaining", f"{i}s")
+            time.sleep(1)
+        timer_placeholder.error("Time is up! Wrap up your sentence.")
+        
+    st.divider()
+    if st.button("📊 End Test & Get Score"):
+        st.session_state.test_active = False
+        with st.spinner("Victoria is calculating your Band Score..."):
+            report_prompt = "Based on our conversation above, provide a formal IELTS Report. Include: 1. Estimated Band Score (0-9). 2. Feedback on Fluency, Lexical Resource, and Grammar. 3. Top 3 tips to improve."
+            st.session_state.messages.append({"role": "user", "content": report_prompt})
+            response = client.chat.completions.create(model="gpt-3.5-turbo", messages=st.session_state.messages)
+            st.session_state.final_report = response.choices[0].message.content
+
+# --- FINAL REPORT DISPLAY ---
+if not st.session_state.test_active and "final_report" in st.session_state:
+    st.header("📋 Final Exam Report")
+    st.markdown(f'<div class="report-box">{st.session_state.final_report}</div>', unsafe_allow_html=True)
+    if st.button("Restart New Test"):
+        for key in st.session_state.keys(): del st.session_state[key]
+        st.rerun()
+    st.stop()
 
 # --- DISPLAY CHAT ---
 for msg in st.session_state.messages:
-    if msg.get("role") != "system":
-        with st.chat_message(msg.get("role")):
-            st.markdown(msg.get("content"))
+    if msg["role"] != "system":
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
-# --- CHAT INPUT ---
-user_input = st.chat_input("Dictate your answer to Victoria...")
+# --- INPUT LOGIC ---
+if st.session_state.test_active:
+    if user_input := st.chat_input("Speak to Victoria..."):
+        with st.chat_message("user"):
+            st.markdown(user_input)
+        st.session_state.messages.append({"role": "user", "content": user_input})
 
-if user_input:
-    with st.chat_message("user"):
-        st.markdown(user_input)
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    
-    with st.chat_message("assistant"):
-        placeholder = st.empty()
-        placeholder.markdown("*(Victoria is listening...)*")
-        
-        try:
-            # Using GPT-3.5-Turbo for maximum speed
+        with st.chat_message("assistant"):
+            placeholder = st.empty()
+            placeholder.markdown("*(Victoria is evaluating...)*")
+            
             response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
-                messages=st.session_state.messages,
-                temperature=0.7 # Makes her sound more natural
+                messages=st.session_state.messages
             )
             ai_reply = response.choices[0].message.content
             placeholder.markdown(ai_reply)
             st.session_state.messages.append({"role": "assistant", "content": ai_reply})
-            
-            # --- FASTER AUDIO GENERATION ---
-            clean_text = ai_reply.replace("*", "").replace("#", "").replace("- ", "")
-            tts = gTTS(text=clean_text, lang='en', tld='co.uk')
-            
-            fp = io.BytesIO()
-            tts.write_to_fp(fp)
-            fp.seek(0)
-            
-            b64 = base64.b64encode(fp.read()).decode()
-            audio_html = f'<audio src="data:audio/mp3;base64,{b64}" controls autoplay style="width:100%; margin-top:10px;"></audio>'
-            st.markdown(audio_html, unsafe_allow_html=True)
-            
-        except Exception as e:
-            st.error(f"Victoria encountered an error: {e}")
+            speak_text(ai_reply)
