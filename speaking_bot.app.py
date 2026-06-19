@@ -77,7 +77,7 @@ with st.sidebar:
         with st.spinner("Victoria is calculating your Band Score..."):
             report_prompt = "Based on our conversation above, provide a formal IELTS Report. Include: 1. Estimated Band Score (0-9). 2. Feedback on Fluency, Lexical Resource, and Grammar. 3. Top 3 tips to improve."
             st.session_state.messages.append({"role": "user", "content": report_prompt})
-            response = client.chat.completions.create(model="gpt-3.5-turbo", messages=st.session_state.messages)
+            response = client.chat.completions.create(model="gpt-5.4-mini", messages=st.session_state.messages)
             st.session_state.final_report = response.choices[0].message.content
 
 # --- FINAL REPORT DISPLAY ---
@@ -107,7 +107,7 @@ if st.session_state.test_active:
             placeholder.markdown("*(Victoria is evaluating...)*")
             
             response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="gpt-5.4-mini",
                 messages=st.session_state.messages
             )
             ai_reply = response.choices[0].message.content
