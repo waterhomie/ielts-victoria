@@ -110,18 +110,20 @@ Never treat capitalization, punctuation, or spelling as evidence of spoken abili
 The program controls the test stages. Do not infer the stage from the conversation.
 """
 
-CORRECTION_JUDGE_PROMPT = """
-You are a strict spoken-English error judge for an IELTS practice app.
+FEEDBACK_COACH_PROMPT = """
+You are a careful spoken-English feedback coach for an IELTS practice app.
 The candidate's answer is a speech-to-text transcript, not written English.
 Use the examiner's question to understand the intended meaning, tense, and context.
 
-Return exactly one of these two formats:
-NO_CORRECTION
-CORRECTION: <one natural corrected version, no more than 30 words>
+Return exactly two labelled lines in this order:
+CORRECTION: NONE
+UPGRADED_ANSWER: NONE
 
-Rules:
+Replace NONE only when the relevant rules below require content.
+
+Correction rules:
 - Silently ask: "Could this error actually be heard?"
-- If it could not be heard, return NO_CORRECTION.
+- If it could not be heard, use CORRECTION: NONE.
 - Ignore capitalization, punctuation, spelling, formatting, proper-name capitalization,
   and obvious speech-recognition mistakes.
 - Do not rewrite an answer merely to make it more elegant or complete.
@@ -135,21 +137,45 @@ Rules:
 - For a long answer, rewrite only one coherent sentence containing the two
   highest-impact improvements.
 
-Examples:
-- Question: "Could you tell me your name?" Answer: "you can call me water"
-  -> NO_CORRECTION
-- Question: "What subject do you study?" Answer: "achitecture"
-  -> NO_CORRECTION
-- Question: "Do you enjoy your studies?" Answer: "yes i do"
-  -> NO_CORRECTION
-- Question: "What do you enjoy most about your studies?" Answer: "i prefer study"
-  -> CORRECTION: I prefer studying.
-- Question: "Has your hometown changed much?"
-  Answer: "yes it become more quiet because of the youth loss"
-  -> CORRECTION: Yes, it has become quieter because many young people have moved away.
-- Question: "Would you visit the building again?"
-  Answer: "yes because you feel ease and relaxation when you in the space"
-  -> CORRECTION: Yes, because I feel relaxed and at ease when I am inside.
+Personalized answer-upgrade rules:
+- The user message will contain ENABLE_UPGRADE: YES or NO.
+- If it is NO, use UPGRADED_ANSWER: NONE.
+- If it is YES, produce a natural first-person answer of two or three sentences,
+  no more than 60 words.
+- Preserve the candidate's own central idea and personal viewpoint.
+- Develop that idea with a relevant reason, detail, consequence, comparison, or
+  simple example. Do not replace it with a different opinion.
+- Do not invent specific names, places, dates, achievements, or life experiences.
+- Make the answer sound like attainable IELTS Band 6.5-7 English, not a memorized essay.
+- The upgraded answer must already incorporate any genuine correction.
+
+Example 1:
+ENABLE_UPGRADE: YES
+Question: "Do you enjoy your studies?"
+Answer: "yes i do"
+CORRECTION: NONE
+UPGRADED_ANSWER: Yes, I do. I enjoy learning how buildings are designed because it combines creativity with practical problem-solving.
+
+Example 2:
+ENABLE_UPGRADE: YES
+Question: "What do you enjoy most about your studies?"
+Answer: "i prefer study design because it is creative"
+CORRECTION: I prefer studying design because it is creative.
+UPGRADED_ANSWER: I prefer studying design because it allows me to be creative. I particularly enjoy turning an initial idea into something practical and visually interesting.
+
+Example 3:
+ENABLE_UPGRADE: NO
+Question: "Has your hometown changed much?"
+Answer: "yes it become more quiet because of the youth loss"
+CORRECTION: Yes, it has become quieter because many young people have moved away.
+UPGRADED_ANSWER: NONE
+
+Example 4:
+ENABLE_UPGRADE: YES
+Question: "What subject do you study?"
+Answer: "achitecture"
+CORRECTION: NONE
+UPGRADED_ANSWER: I study architecture. I chose this subject because I am interested in both creative design and the way buildings affect people's daily lives.
 """
 
 
@@ -182,17 +208,18 @@ def call_model(messages):
     return response.choices[0].message.content.strip()
 
 
-def evaluate_spoken_answer(question, answer):
+def coach_spoken_answer(question, answer, include_upgrade):
     spoken_words = re.findall(r"[A-Za-z']+", answer)
-    if len(spoken_words) <= 1:
-        return None
+    if not spoken_words:
+        return None, None
 
     result = call_model(
         [
-            {"role": "system", "content": CORRECTION_JUDGE_PROMPT},
+            {"role": "system", "content": FEEDBACK_COACH_PROMPT},
             {
                 "role": "user",
                 "content": (
+                    f"ENABLE_UPGRADE: {'YES' if include_upgrade else 'NO'}\n\n"
                     f"EXAMINER QUESTION:\n{question}\n\n"
                     f"CANDIDATE ANSWER:\n{answer}"
                 ),
@@ -200,14 +227,25 @@ def evaluate_spoken_answer(question, answer):
         ]
     )
 
-    if result.upper().startswith("NO_CORRECTION"):
-        return None
-    if result.upper().startswith("CORRECTION:"):
-        correction = result.split(":", 1)[1].strip()
-        return correction or None
+    correction_match = re.search(
+        r"(?im)^CORRECTION:\s*(.+?)\s*$",
+        result,
+    )
+    upgrade_match = re.search(
+        r"(?ims)^UPGRADED[_ ]ANSWER:\s*(.+?)\s*(?:```)?$",
+        result,
+    )
 
-    # Safe default: never display an unstructured or uncertain correction.
-    return None
+    correction = correction_match.group(1).strip() if correction_match else None
+    upgraded_answer = upgrade_match.group(1).strip() if upgrade_match else None
+
+    if correction and correction.upper() == "NONE":
+        correction = None
+    if upgraded_answer and upgraded_answer.upper() == "NONE":
+        upgraded_answer = None
+
+    # Safe default: never display unstructured model output.
+    return correction, upgraded_answer
 
 
 def speak_text(text):
@@ -347,12 +385,12 @@ def choose_part1_followups(answer):
     return personal_questions + st.session_state.part1_secondary_questions
 
 
-def build_reply(correction, expansion_tip, next_content):
+def build_reply(correction, upgraded_answer, next_content):
     sections = []
     if correction:
         sections.append(f"**Quick correction:** {correction}")
-    if expansion_tip:
-        sections.append(f"**Expansion tip:** {expansion_tip}")
+    if upgraded_answer:
+        sections.append(f"**A fuller version of your answer:**\n\n> {upgraded_answer}")
     sections.append(next_content)
     return "\n\n".join(sections)
 
@@ -361,21 +399,18 @@ def build_reply(correction, expansion_tip, next_content):
 def process_candidate_answer(answer, previous_question, answer_duration=None):
     phase = st.session_state.phase
     correction = None
-    if st.session_state.practice_mode:
-        correction = evaluate_spoken_answer(previous_question, answer)
-
-    expansion_tip = None
-    answer_word_count = len(re.findall(r"[A-Za-z']+", answer))
-    if (
+    upgraded_answer = None
+    include_upgrade = (
         st.session_state.practice_mode
-        and phase in {"part1", "part3"}
-        and not (phase == "part1" and not st.session_state.part1_queue)
-        and correction is None
-        and answer_word_count <= 3
-        and st.session_state.expansion_tips_used < 2
-    ):
-        expansion_tip = "Add one reason or example so you can demonstrate more fluency."
-        st.session_state.expansion_tips_used += 1
+        and st.session_state.answer_expansion_mode
+        and phase in {"part1", "part2_followup", "part3"}
+    )
+    if st.session_state.practice_mode and phase != "identity":
+        correction, upgraded_answer = coach_spoken_answer(
+            previous_question,
+            answer,
+            include_upgrade,
+        )
 
     start_prep_timer = False
 
@@ -463,7 +498,7 @@ def process_candidate_answer(answer, previous_question, answer_duration=None):
     else:
         st.session_state.current_question = next_content
 
-    return build_reply(correction, expansion_tip, next_content), start_prep_timer
+    return build_reply(correction, upgraded_answer, next_content), start_prep_timer
 
 
 # --- SESSION STATE ---
@@ -483,11 +518,11 @@ if "messages" not in st.session_state:
     st.session_state.part2_duration = 0.0
     st.session_state.part2_audio_used = False
     st.session_state.part2_extension_used = False
-    st.session_state.expansion_tips_used = 0
     st.session_state.cue_card = random.choice(CUE_CARDS)
     st.session_state.current_question = FIRST_MESSAGE
     st.session_state.test_active = True
     st.session_state.practice_mode = True
+    st.session_state.answer_expansion_mode = True
     st.session_state.answer_stats = []
     st.session_state.audio_input_key = 0
 
@@ -500,6 +535,16 @@ with st.sidebar:
         "Practice mode - instant spoken corrections",
         key="practice_mode",
         help="Turn this off for a realistic exam with feedback only at the end.",
+    )
+
+    st.toggle(
+        "Personalized answer expansion",
+        key="answer_expansion_mode",
+        disabled=not st.session_state.practice_mode,
+        help=(
+            "After your answer, Victoria preserves your idea and shows a natural "
+            "two-to-three-sentence expanded version."
+        ),
     )
 
     current_part = {
