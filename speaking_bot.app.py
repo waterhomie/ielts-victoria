@@ -6,7 +6,7 @@ import base64
 import time
 
 # --- CONFIGURATION ---
-API_KEY = "sk-G8Q0c6064d94bb663ba726b7d6564ea3807451c218atKtqS"
+API_KEY = st.secrets["API_KEY"]
 BASE_URL = "https://api.gptsapi.net/v1" 
 
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
