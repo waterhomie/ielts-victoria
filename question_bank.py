@@ -1,56 +1,13 @@
 """Curated IELTS Speaking question bank used by the Streamlit app."""
 
+from pdf_recall_question_bank import (
+    PART1_STUDY_QUESTIONS,
+    PART1_WORK_QUESTIONS,
+    PDF_CUE_CARDS,
+    PDF_PART1_SECONDARY_TOPICS,
+)
 
-PART1_SECONDARY_TOPICS = [
-    {
-        "name": "hometown",
-        "questions": [
-            "Where is your hometown?",
-            "What do you like most about your hometown?",
-            "Has your hometown changed much in recent years?",
-        ],
-    },
-    {
-        "name": "home",
-        "questions": [
-            "Do you live in a house or an apartment?",
-            "Which room do you spend the most time in?",
-            "What would you like to change about your home?",
-        ],
-    },
-    {
-        "name": "hobbies",
-        "questions": [
-            "What do you usually do in your free time?",
-            "How did you become interested in this activity?",
-            "Would you like to try a new hobby in the future?",
-        ],
-    },
-    {
-        "name": "transport",
-        "questions": [
-            "How do you usually travel around your city?",
-            "What is the most convenient form of transport where you live?",
-            "Do you think you will use public transport more in the future?",
-        ],
-    },
-    {
-        "name": "food",
-        "questions": [
-            "What kind of food do you enjoy eating?",
-            "Do you prefer eating at home or in restaurants?",
-            "Have your eating habits changed in recent years?",
-        ],
-    },
-    {
-        "name": "weekends",
-        "questions": [
-            "What do you usually do at weekends?",
-            "Do you prefer busy or relaxing weekends?",
-            "Is there anything you would like to do more often at weekends?",
-        ],
-    },
-]
+PART1_SECONDARY_TOPICS = PDF_PART1_SECONDARY_TOPICS
 
 
 EXTRA_CUE_CARDS = [
@@ -310,3 +267,8 @@ EXTRA_CUE_CARDS = [
         ],
     },
 ]
+
+
+# Candidate-recall cards from the scanned May-August PDF are kept in a separate
+# source module so the extraction can be audited and refreshed independently.
+EXTRA_CUE_CARDS.extend(PDF_CUE_CARDS)
