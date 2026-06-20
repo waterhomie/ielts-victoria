@@ -9,7 +9,12 @@ import streamlit.components.v1 as components
 from gtts import gTTS
 from openai import OpenAI
 
-from question_bank import EXTRA_CUE_CARDS, PART1_SECONDARY_TOPICS
+from question_bank import (
+    EXTRA_CUE_CARDS,
+    PART1_SECONDARY_TOPICS,
+    PART1_STUDY_QUESTIONS,
+    PART1_WORK_QUESTIONS,
+)
 
 
 # --- CONFIGURATION ---
@@ -24,15 +29,8 @@ client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 # --- TEST CONTENT ---
 PART1_FIRST_QUESTION = "Do you work, or are you a student?"
 
-PART1_STUDENT_FOLLOWUPS = [
-    "What subject are you studying?",
-    "What do you enjoy most about your studies?",
-]
-
-PART1_WORK_FOLLOWUPS = [
-    "What kind of work do you do?",
-    "What do you enjoy most about your job?",
-]
+PART1_STUDENT_FOLLOWUPS = PART1_STUDY_QUESTIONS
+PART1_WORK_FOLLOWUPS = PART1_WORK_QUESTIONS
 
 PART1_GENERAL_FOLLOWUPS = [
     "What do you usually do during a typical weekday?",
@@ -179,6 +177,26 @@ UPGRADED_ANSWER: I study architecture. I chose this subject because I am interes
 """
 
 
+PART3_ADAPTIVE_PROMPT = """
+You are an IELTS Speaking examiner preparing exactly FOUR Part 3 discussion questions.
+
+Use both sources:
+1. The recall-question-bank questions supplied for this Part 2 topic.
+2. The candidate's own Part 2 answer and short follow-up answer.
+
+Rules:
+- Keep the questions clearly connected to the recall-question-bank topic.
+- Questions 1 and 2 should closely reflect useful angles from the question bank.
+- At least one later question should extend an idea actually mentioned by the candidate.
+- Turn personal details into broader analytical discussion about people, society, causes,
+  comparisons, advantages and disadvantages, rules, or future change.
+- Do not merely ask the candidate to repeat or add details to the Part 2 story.
+- Do not assume the candidate said something that is absent from the transcript.
+- Move from relatively accessible discussion to more abstract critical thinking.
+- Return exactly four numbered, single-sentence questions and no other text.
+"""
+
+
 # --- WEB APP SETUP ---
 st.set_page_config(
     page_title="IELTS Victoria Pro",
@@ -206,6 +224,57 @@ def call_model(messages):
         messages=messages,
     )
     return response.choices[0].message.content.strip()
+
+
+def generate_adaptive_part3_questions(card, candidate_part2_answers):
+    reference_questions = card.get("part3") or []
+    fallback = list(reference_questions[:4])
+    if len(fallback) < 4:
+        fallback.extend(
+            [
+                "Why might people have different opinions about this topic?",
+                "How has this aspect of life changed in recent years?",
+                "Are younger and older people likely to think differently about it?",
+                "How might this topic develop in the future?",
+            ][: 4 - len(fallback)]
+        )
+
+    reference_text = "\n".join(f"- {question}" for question in reference_questions)
+    candidate_text = "\n".join(candidate_part2_answers).strip()
+    if not candidate_text:
+        candidate_text = "No usable candidate transcript was available."
+
+    try:
+        result = call_model(
+            [
+                {"role": "system", "content": PART3_ADAPTIVE_PROMPT},
+                {
+                    "role": "user",
+                    "content": (
+                        f"PART 2 TOPIC:\n{card['prompt']}\n\n"
+                        f"REFERENCE PART 3 QUESTIONS:\n{reference_text}\n\n"
+                        f"CANDIDATE'S PART 2 RESPONSES:\n{candidate_text}"
+                    ),
+                },
+            ]
+        )
+    except Exception:
+        return fallback
+
+    questions = []
+    for line in result.splitlines():
+        cleaned = re.sub(r"^\s*(?:\d+[.)：:]|[-*])\s*", "", line).strip()
+        if cleaned.endswith("?") and cleaned not in questions:
+            questions.append(cleaned)
+
+    if len(questions) < 4:
+        for question in fallback:
+            if question not in questions:
+                questions.append(question)
+            if len(questions) == 4:
+                break
+
+    return questions[:4]
 
 
 def coach_spoken_answer(question, answer, include_upgrade):
@@ -376,12 +445,13 @@ def reset_test():
 def choose_part1_followups(answer):
     normalized = answer.lower()
     if re.search(r"\b(student|study|studying|university|college|school)\b", normalized):
-        personal_questions = PART1_STUDENT_FOLLOWUPS
+        personal_pool = PART1_STUDENT_FOLLOWUPS
     elif re.search(r"\b(work|working|job|employed|employee)\b", normalized):
-        personal_questions = PART1_WORK_FOLLOWUPS
+        personal_pool = PART1_WORK_FOLLOWUPS
     else:
-        personal_questions = PART1_GENERAL_FOLLOWUPS
+        personal_pool = PART1_GENERAL_FOLLOWUPS
 
+    personal_questions = random.sample(personal_pool, k=min(2, len(personal_pool)))
     return personal_questions + st.session_state.part1_secondary_questions
 
 
@@ -432,6 +502,8 @@ def process_candidate_answer(answer, previous_question, answer_duration=None):
             st.session_state.part2_duration = 0.0
             st.session_state.part2_audio_used = False
             st.session_state.part2_extension_used = False
+            st.session_state.part2_answers = []
+            st.session_state.part3_questions = []
             st.session_state.timer_end = time.time() + 60
             st.session_state.timer_label = "Part 2 preparation time"
             start_prep_timer = True
@@ -443,6 +515,7 @@ def process_candidate_answer(answer, previous_question, answer_duration=None):
             )
 
     elif phase == "part2_long":
+        st.session_state.part2_answers.append(answer)
         st.session_state.part2_words += len(re.findall(r"[A-Za-z']+", answer))
         if answer_duration:
             st.session_state.part2_duration += answer_duration
@@ -466,16 +539,21 @@ def process_candidate_answer(answer, previous_question, answer_duration=None):
             next_content = st.session_state.cue_card["follow_up"]
 
     elif phase == "part2_followup":
+        st.session_state.part2_answers.append(answer)
+        st.session_state.part3_questions = generate_adaptive_part3_questions(
+            st.session_state.cue_card,
+            st.session_state.part2_answers,
+        )
         st.session_state.phase = "part3"
         st.session_state.part3_index = 1
         next_content = (
             "**Part 3 - Discussion**\n\n"
-            + st.session_state.cue_card["part3"][0]
+            + st.session_state.part3_questions[0]
         )
 
     elif phase == "part3":
         index = st.session_state.part3_index
-        questions = st.session_state.cue_card["part3"]
+        questions = st.session_state.part3_questions
         if index < len(questions):
             next_content = questions[index]
             st.session_state.part3_index += 1
@@ -503,6 +581,7 @@ def process_candidate_answer(answer, previous_question, answer_duration=None):
 
 # --- SESSION STATE ---
 if "messages" not in st.session_state:
+    selected_part1_topic = random.choice(PART1_SECONDARY_TOPICS)
     st.session_state.messages = [
         {"role": "system", "content": EXAM_CONTEXT},
         {"role": "assistant", "content": FIRST_MESSAGE},
@@ -510,14 +589,18 @@ if "messages" not in st.session_state:
     st.session_state.phase = "identity"
     st.session_state.part1_index = 0
     st.session_state.part1_queue = []
-    st.session_state.part1_secondary_questions = list(
-        random.choice(PART1_SECONDARY_TOPICS)["questions"]
+    st.session_state.part1_topic = selected_part1_topic["name"]
+    st.session_state.part1_secondary_questions = random.sample(
+        selected_part1_topic["questions"],
+        k=min(3, len(selected_part1_topic["questions"])),
     )
     st.session_state.part3_index = 0
     st.session_state.part2_words = 0
     st.session_state.part2_duration = 0.0
     st.session_state.part2_audio_used = False
     st.session_state.part2_extension_used = False
+    st.session_state.part2_answers = []
+    st.session_state.part3_questions = []
     st.session_state.cue_card = random.choice(CUE_CARDS)
     st.session_state.current_question = FIRST_MESSAGE
     st.session_state.test_active = True
