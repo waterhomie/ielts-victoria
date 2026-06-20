@@ -18,10 +18,24 @@ client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
 
 # --- TEST CONTENT ---
-PART1_QUESTIONS = [
-    "Do you work, or are you a student?",
-    "What do you enjoy most about your work or studies?",
-    "Is there anything you would like to change about your work or studies?",
+PART1_FIRST_QUESTION = "Do you work, or are you a student?"
+
+PART1_STUDENT_FOLLOWUPS = [
+    "What subject are you studying?",
+    "What do you enjoy most about your studies?",
+]
+
+PART1_WORK_FOLLOWUPS = [
+    "What kind of work do you do?",
+    "What do you enjoy most about your job?",
+]
+
+PART1_GENERAL_FOLLOWUPS = [
+    "What do you usually do during a typical weekday?",
+    "What part of your daily routine do you enjoy most?",
+]
+
+PART1_HOMETOWN_QUESTIONS = [
     "Where is your hometown?",
     "What do you like most about your hometown?",
     "Has your hometown changed much in recent years?",
@@ -99,10 +113,11 @@ The program controls the test stages. Do not infer the stage from the conversati
 CORRECTION_JUDGE_PROMPT = """
 You are a strict spoken-English error judge for an IELTS practice app.
 The candidate's answer is a speech-to-text transcript, not written English.
+Use the examiner's question to understand the intended meaning, tense, and context.
 
 Return exactly one of these two formats:
 NO_CORRECTION
-CORRECTION: <one short, useful correction sentence>
+CORRECTION: <one natural corrected version of the candidate's answer>
 
 Rules:
 - Silently ask: "Could this error actually be heard?"
@@ -114,17 +129,27 @@ Rules:
   is not automatically a grammar error.
 - Correct only genuine audible problems in grammar, word choice, sentence structure,
   or spoken fluency.
-- For a long answer with several errors, mention no more than three high-impact fixes
-  in one concise sentence.
+- The corrected version must be natural English, not a mechanical word-for-word repair.
+- Preserve the candidate's intended meaning and use the tense required by the question.
+- Do not explain grammar rules and do not list several quoted fragments.
+- For a long answer, rewrite only one coherent sentence containing the two or three
+  highest-impact improvements.
 
 Examples:
-- "you can call me water" -> NO_CORRECTION
-- "architecture" -> NO_CORRECTION
-- "achitecture" -> NO_CORRECTION
-- "yes i do" -> NO_CORRECTION
-- "maybe everyday" -> NO_CORRECTION
-- "i am student" -> CORRECTION: Say "I am a student" because the spoken article "a" is missing.
-- "it located in chengdu and it consist of four blocks" -> CORRECTION: Say "It is located in Chengdu and it consists of four blocks."
+- Question: "Could you tell me your name?" Answer: "you can call me water"
+  -> NO_CORRECTION
+- Question: "What subject do you study?" Answer: "achitecture"
+  -> NO_CORRECTION
+- Question: "Do you enjoy your studies?" Answer: "yes i do"
+  -> NO_CORRECTION
+- Question: "What do you enjoy most about your studies?" Answer: "i prefer study"
+  -> CORRECTION: I prefer studying.
+- Question: "Has your hometown changed much?"
+  Answer: "yes it become more quiet because of the youth loss"
+  -> CORRECTION: Yes, it has become quieter because many young people have moved away.
+- Question: "Would you visit the building again?"
+  Answer: "yes because you feel ease and relaxation when you in the space"
+  -> CORRECTION: Yes, because I feel relaxed and at ease when I am inside.
 """
 
 
@@ -157,7 +182,7 @@ def call_model(messages):
     return response.choices[0].message.content.strip()
 
 
-def evaluate_spoken_answer(answer):
+def evaluate_spoken_answer(question, answer):
     spoken_words = re.findall(r"[A-Za-z']+", answer)
     if len(spoken_words) <= 1:
         return None
@@ -165,7 +190,13 @@ def evaluate_spoken_answer(answer):
     result = call_model(
         [
             {"role": "system", "content": CORRECTION_JUDGE_PROMPT},
-            {"role": "user", "content": answer},
+            {
+                "role": "user",
+                "content": (
+                    f"EXAMINER QUESTION:\n{question}\n\n"
+                    f"CANDIDATE ANSWER:\n{answer}"
+                ),
+            },
         ]
     )
 
@@ -229,30 +260,61 @@ def reset_test():
     st.rerun()
 
 
-def build_reply(correction, next_content):
+def choose_part1_followups(answer):
+    normalized = answer.lower()
+    if re.search(r"\b(student|study|studying|university|college|school)\b", normalized):
+        personal_questions = PART1_STUDENT_FOLLOWUPS
+    elif re.search(r"\b(work|working|job|employed|employee)\b", normalized):
+        personal_questions = PART1_WORK_FOLLOWUPS
+    else:
+        personal_questions = PART1_GENERAL_FOLLOWUPS
+
+    return personal_questions + PART1_HOMETOWN_QUESTIONS
+
+
+def build_reply(correction, expansion_tip, next_content):
+    sections = []
     if correction:
-        return f"**Quick correction:** {correction}\n\n{next_content}"
-    return next_content
+        sections.append(f"**Quick correction:** {correction}")
+    if expansion_tip:
+        sections.append(f"**Expansion tip:** {expansion_tip}")
+    sections.append(next_content)
+    return "\n\n".join(sections)
 
 
 # --- RELIABLE PROGRAM-CONTROLLED TEST FLOW ---
-def process_candidate_answer(answer):
+def process_candidate_answer(answer, previous_question):
+    phase = st.session_state.phase
     correction = None
     if st.session_state.practice_mode:
-        correction = evaluate_spoken_answer(answer)
+        correction = evaluate_spoken_answer(previous_question, answer)
 
-    phase = st.session_state.phase
+    expansion_tip = None
+    answer_word_count = len(re.findall(r"[A-Za-z']+", answer))
+    if (
+        st.session_state.practice_mode
+        and phase in {"part1", "part3"}
+        and not (phase == "part1" and not st.session_state.part1_queue)
+        and correction is None
+        and answer_word_count <= 3
+        and st.session_state.expansion_tips_used < 2
+    ):
+        expansion_tip = "Add one reason or example so you can demonstrate more fluency."
+        st.session_state.expansion_tips_used += 1
+
     start_prep_timer = False
 
     if phase == "identity":
         st.session_state.phase = "part1"
-        st.session_state.part1_index = 1
-        next_content = PART1_QUESTIONS[0]
+        st.session_state.part1_index = 0
+        next_content = PART1_FIRST_QUESTION
 
     elif phase == "part1":
+        if not st.session_state.part1_queue:
+            st.session_state.part1_queue = choose_part1_followups(answer)
         index = st.session_state.part1_index
-        if index < len(PART1_QUESTIONS):
-            next_content = PART1_QUESTIONS[index]
+        if index < len(st.session_state.part1_queue):
+            next_content = st.session_state.part1_queue[index]
             st.session_state.part1_index += 1
         else:
             st.session_state.phase = "part2_long"
@@ -307,7 +369,15 @@ def process_candidate_answer(answer):
     else:
         next_content = "The test is complete. Click **End Test & Get Score**."
 
-    return build_reply(correction, next_content), start_prep_timer
+    if (
+        st.session_state.phase == "part2_long"
+        and next_content.startswith("Please continue")
+    ):
+        st.session_state.current_question = st.session_state.cue_card["prompt"]
+    else:
+        st.session_state.current_question = next_content
+
+    return build_reply(correction, expansion_tip, next_content), start_prep_timer
 
 
 # --- SESSION STATE ---
@@ -318,10 +388,13 @@ if "messages" not in st.session_state:
     ]
     st.session_state.phase = "identity"
     st.session_state.part1_index = 0
+    st.session_state.part1_queue = []
     st.session_state.part3_index = 0
     st.session_state.part2_words = 0
     st.session_state.part2_extension_used = False
+    st.session_state.expansion_tips_used = 0
     st.session_state.cue_card = random.choice(CUE_CARDS)
+    st.session_state.current_question = FIRST_MESSAGE
     st.session_state.test_active = True
     st.session_state.practice_mode = True
 
@@ -415,7 +488,10 @@ if st.session_state.test_active:
             placeholder.markdown("*(Victoria is evaluating...)*")
 
             try:
-                ai_reply, start_prep_timer = process_candidate_answer(user_input)
+                ai_reply, start_prep_timer = process_candidate_answer(
+                    user_input,
+                    st.session_state.current_question,
+                )
                 placeholder.markdown(ai_reply)
                 st.session_state.messages.append(
                     {"role": "assistant", "content": ai_reply}
