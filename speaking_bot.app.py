@@ -2,17 +2,21 @@ import io
 import random
 import re
 import time
+import wave
 
 import streamlit as st
 import streamlit.components.v1 as components
 from gtts import gTTS
 from openai import OpenAI
 
+from question_bank import EXTRA_CUE_CARDS, PART1_SECONDARY_TOPICS
+
 
 # --- CONFIGURATION ---
 API_KEY = st.secrets["API_KEY"]
 BASE_URL = "https://api.gptsapi.net/v1"
 MODEL = "gpt-5.4-mini"
+TRANSCRIPTION_MODEL = "whisper-1"
 
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
@@ -33,12 +37,6 @@ PART1_WORK_FOLLOWUPS = [
 PART1_GENERAL_FOLLOWUPS = [
     "What do you usually do during a typical weekday?",
     "What part of your daily routine do you enjoy most?",
-]
-
-PART1_HOMETOWN_QUESTIONS = [
-    "Where is your hometown?",
-    "What do you like most about your hometown?",
-    "Has your hometown changed much in recent years?",
 ]
 
 CUE_CARDS = [
@@ -98,6 +96,8 @@ CUE_CARDS = [
     },
 ]
 
+CUE_CARDS.extend(EXTRA_CUE_CARDS)
+
 FIRST_MESSAGE = (
     "**Part 1 - Introduction and Interview**\n\n"
     "Good afternoon. My name is Victoria, and I will be your examiner today. "
@@ -117,7 +117,7 @@ Use the examiner's question to understand the intended meaning, tense, and conte
 
 Return exactly one of these two formats:
 NO_CORRECTION
-CORRECTION: <one natural corrected version of the candidate's answer>
+CORRECTION: <one natural corrected version, no more than 30 words>
 
 Rules:
 - Silently ask: "Could this error actually be heard?"
@@ -132,7 +132,7 @@ Rules:
 - The corrected version must be natural English, not a mechanical word-for-word repair.
 - Preserve the candidate's intended meaning and use the tense required by the question.
 - Do not explain grammar rules and do not list several quoted fragments.
-- For a long answer, rewrite only one coherent sentence containing the two or three
+- For a long answer, rewrite only one coherent sentence containing the two
   highest-impact improvements.
 
 Examples:
@@ -221,6 +221,81 @@ def speak_text(text):
     st.audio(audio_buffer.getvalue(), format="audio/mp3", autoplay=True)
 
 
+def get_wav_duration(audio_bytes):
+    try:
+        with wave.open(io.BytesIO(audio_bytes), "rb") as audio_file:
+            frame_rate = audio_file.getframerate()
+            if not frame_rate:
+                return None
+            return audio_file.getnframes() / float(frame_rate)
+    except (wave.Error, EOFError):
+        return None
+
+
+def transcribe_audio(audio_bytes):
+    audio_file = io.BytesIO(audio_bytes)
+    audio_file.name = "ielts_answer.wav"
+    transcription = client.audio.transcriptions.create(
+        model=TRANSCRIPTION_MODEL,
+        file=audio_file,
+        language="en",
+    )
+    text = getattr(transcription, "text", None)
+    if not text and isinstance(transcription, dict):
+        text = transcription.get("text")
+    if not text:
+        raise ValueError("The transcription service returned no text.")
+    return text.strip()
+
+
+def save_answer_stats(text, source, duration, phase):
+    word_count = len(re.findall(r"[A-Za-z']+", text))
+    words_per_minute = None
+    if duration and duration >= 2:
+        words_per_minute = round(word_count / (duration / 60))
+
+    st.session_state.answer_stats.append(
+        {
+            "phase": phase,
+            "source": source,
+            "duration": round(duration, 1) if duration else None,
+            "word_count": word_count,
+            "wpm": words_per_minute,
+        }
+    )
+
+
+def audio_stats_summary():
+    recorded = [
+        item
+        for item in st.session_state.answer_stats
+        if item["source"] == "audio" and item["duration"]
+    ]
+    if not recorded:
+        return "No recorded-audio timing data was available."
+
+    total_seconds = round(sum(item["duration"] for item in recorded), 1)
+    total_words = sum(item["word_count"] for item in recorded)
+    average_wpm = round(total_words / (total_seconds / 60)) if total_seconds else 0
+    return (
+        f"Recorded answers: {len(recorded)}; total speaking time: {total_seconds} seconds; "
+        f"total transcribed words: {total_words}; average speaking rate: {average_wpm} WPM."
+    )
+
+
+def export_transcript():
+    lines = ["IELTS Victoria Pro - Practice Transcript", ""]
+    for message in st.session_state.messages:
+        if message["role"] == "system":
+            continue
+        speaker = "Victoria" if message["role"] == "assistant" else "Candidate"
+        lines.append(f"{speaker}: {message['content']}")
+        lines.append("")
+    lines.append("Audio statistics:")
+    lines.append(audio_stats_summary())
+    return "\n".join(lines)
+
+
 def render_countdown(end_time, label):
     remaining = max(0, int(end_time - time.time()))
     components.html(
@@ -269,7 +344,7 @@ def choose_part1_followups(answer):
     else:
         personal_questions = PART1_GENERAL_FOLLOWUPS
 
-    return personal_questions + PART1_HOMETOWN_QUESTIONS
+    return personal_questions + st.session_state.part1_secondary_questions
 
 
 def build_reply(correction, expansion_tip, next_content):
@@ -283,7 +358,7 @@ def build_reply(correction, expansion_tip, next_content):
 
 
 # --- RELIABLE PROGRAM-CONTROLLED TEST FLOW ---
-def process_candidate_answer(answer, previous_question):
+def process_candidate_answer(answer, previous_question, answer_duration=None):
     phase = st.session_state.phase
     correction = None
     if st.session_state.practice_mode:
@@ -319,6 +394,8 @@ def process_candidate_answer(answer, previous_question):
         else:
             st.session_state.phase = "part2_long"
             st.session_state.part2_words = 0
+            st.session_state.part2_duration = 0.0
+            st.session_state.part2_audio_used = False
             st.session_state.part2_extension_used = False
             st.session_state.timer_end = time.time() + 60
             st.session_state.timer_label = "Part 2 preparation time"
@@ -332,8 +409,17 @@ def process_candidate_answer(answer, previous_question):
 
     elif phase == "part2_long":
         st.session_state.part2_words += len(re.findall(r"[A-Za-z']+", answer))
+        if answer_duration:
+            st.session_state.part2_duration += answer_duration
+            st.session_state.part2_audio_used = True
+
+        needs_more = (
+            st.session_state.part2_duration < 50
+            if st.session_state.part2_audio_used
+            else st.session_state.part2_words < 80
+        )
         if (
-            st.session_state.part2_words < 80
+            needs_more
             and not st.session_state.part2_extension_used
         ):
             st.session_state.part2_extension_used = True
@@ -389,14 +475,21 @@ if "messages" not in st.session_state:
     st.session_state.phase = "identity"
     st.session_state.part1_index = 0
     st.session_state.part1_queue = []
+    st.session_state.part1_secondary_questions = list(
+        random.choice(PART1_SECONDARY_TOPICS)["questions"]
+    )
     st.session_state.part3_index = 0
     st.session_state.part2_words = 0
+    st.session_state.part2_duration = 0.0
+    st.session_state.part2_audio_used = False
     st.session_state.part2_extension_used = False
     st.session_state.expansion_tips_used = 0
     st.session_state.cue_card = random.choice(CUE_CARDS)
     st.session_state.current_question = FIRST_MESSAGE
     st.session_state.test_active = True
     st.session_state.practice_mode = True
+    st.session_state.answer_stats = []
+    st.session_state.audio_input_key = 0
 
 
 # --- SIDEBAR TOOLS ---
@@ -419,6 +512,28 @@ with st.sidebar:
     }.get(st.session_state.phase, "Part 1")
     st.info(f"Current stage: {current_part}")
 
+    progress_value = {
+        "identity": 0.05,
+        "part1": 0.25,
+        "part2_long": 0.5,
+        "part2_followup": 0.65,
+        "part3": 0.8,
+        "complete": 1.0,
+    }.get(st.session_state.phase, 0.05)
+    st.progress(progress_value, text="Test progress")
+
+    recorded_answers = [
+        item
+        for item in st.session_state.answer_stats
+        if item["source"] == "audio" and item["duration"]
+    ]
+    if recorded_answers:
+        total_audio_seconds = sum(item["duration"] for item in recorded_answers)
+        st.caption(
+            f"Recorded answers: {len(recorded_answers)} | "
+            f"Speaking time: {total_audio_seconds:.1f}s"
+        )
+
     timer_slot = st.empty()
     if "timer_end" in st.session_state and st.session_state.phase == "part2_long":
         with timer_slot.container():
@@ -439,14 +554,23 @@ with st.sidebar:
         reset_test()
 
     if st.button("End Test & Get Score", use_container_width=True):
-        report_prompt = """
-Create a concise IELTS Speaking practice report from this conversation.
+        report_prompt = f"""
+Create a clear IELTS Speaking practice report from this conversation.
+
 Include:
 1. An estimated overall band score, clearly labelled as an estimate.
-2. Feedback on Fluency and Coherence, Lexical Resource, and Grammatical Range and Accuracy.
-3. Three practical improvement priorities with corrected examples from the candidate's answers.
+2. Separate estimated bands for Fluency and Coherence, Lexical Resource, and
+   Grammatical Range and Accuracy, each supported by evidence from the answers.
+3. The candidate's three most important recurring spoken-language problems.
+4. Three natural corrected examples based on the candidate's own meaning.
+5. A focused seven-day improvement plan.
+
+Audio timing information:
+{audio_stats_summary()}
+
+Use timing and speaking-rate data only when recorded audio was available.
 Ignore spelling, capitalization, and punctuation because the answers are speech-to-text transcripts.
-State clearly that pronunciation cannot be assessed reliably from text alone.
+State clearly that pronunciation cannot be assessed reliably without acoustic analysis.
 """
         with st.spinner("Victoria is preparing your report..."):
             try:
@@ -457,6 +581,14 @@ State clearly that pronunciation cannot be assessed reliably from text alone.
                 st.session_state.test_active = False
             except Exception as error:
                 st.error(f"The report could not be generated: {error}")
+
+    st.download_button(
+        "Download Transcript",
+        data=export_transcript(),
+        file_name="ielts_victoria_transcript.txt",
+        mime="text/plain",
+        use_container_width=True,
+    )
 
 
 # --- FINAL REPORT DISPLAY ---
@@ -478,10 +610,70 @@ for message in st.session_state.messages:
 
 # --- INPUT LOGIC ---
 if st.session_state.test_active:
-    if user_input := st.chat_input("Speak to Victoria..."):
+    user_input = None
+    input_source = "text"
+    answer_duration = None
+
+    with st.expander("Record your answer", expanded=False):
+        st.caption(
+            "Your recording is sent to your configured GPTs API provider for English transcription."
+        )
+        recorder_key = st.session_state.audio_input_key
+        recorded_audio = st.audio_input(
+            "Speak in English",
+            key=f"audio_answer_{recorder_key}",
+        )
+
+        if st.button(
+            "Transcribe recording",
+            disabled=recorded_audio is None,
+            key=f"transcribe_audio_{recorder_key}",
+            use_container_width=True,
+        ):
+            audio_bytes = recorded_audio.getvalue()
+            with st.spinner("Transcribing your recording..."):
+                try:
+                    st.session_state.pending_transcript = transcribe_audio(audio_bytes)
+                    st.session_state.pending_audio_duration = get_wav_duration(audio_bytes)
+                except Exception as error:
+                    st.error(
+                        "Audio transcription is temporarily unavailable. "
+                        f"You can still type your answer below. Details: {error}"
+                    )
+
+        if st.session_state.get("pending_transcript"):
+            edited_transcript = st.text_area(
+                "Review the transcript before submitting",
+                value=st.session_state.pending_transcript,
+                key=f"transcript_editor_{recorder_key}",
+            )
+            if st.button(
+                "Submit recorded answer",
+                key=f"submit_audio_{recorder_key}",
+                type="primary",
+                use_container_width=True,
+            ):
+                user_input = edited_transcript.strip()
+                input_source = "audio"
+                answer_duration = st.session_state.get("pending_audio_duration")
+                st.session_state.audio_input_key += 1
+                st.session_state.pop("pending_transcript", None)
+                st.session_state.pop("pending_audio_duration", None)
+
+    typed_input = st.chat_input("Type your answer, or use the recorder above...")
+    if typed_input:
+        user_input = typed_input
+        input_source = "text"
+        answer_duration = None
+
+    if user_input:
+        answer_phase = st.session_state.phase
         with st.chat_message("user"):
             st.markdown(user_input)
+            if input_source == "audio" and answer_duration:
+                st.caption(f"Recorded answer: {answer_duration:.1f} seconds")
         st.session_state.messages.append({"role": "user", "content": user_input})
+        save_answer_stats(user_input, input_source, answer_duration, answer_phase)
 
         with st.chat_message("assistant"):
             placeholder = st.empty()
@@ -491,6 +683,7 @@ if st.session_state.test_active:
                 ai_reply, start_prep_timer = process_candidate_answer(
                     user_input,
                     st.session_state.current_question,
+                    answer_duration,
                 )
                 placeholder.markdown(ai_reply)
                 st.session_state.messages.append(
