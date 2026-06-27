@@ -17,13 +17,34 @@ from question_bank import (
 )
 
 
+# --- WEB APP SETUP ---
+st.set_page_config(
+    page_title="IELTS Victoria Pro",
+    page_icon="🎓",
+    layout="centered",
+)
+
+
 # --- CONFIGURATION ---
-API_KEY = st.secrets["API_KEY"]
-BASE_URL = "https://api.gptsapi.net/v1"
-MODEL = "gpt-5.4-mini"
-TRANSCRIPTION_MODEL = "whisper-1"
+def get_secret(name, default=None):
+    try:
+        return st.secrets.get(name, default)
+    except Exception:
+        return default
+
+
+API_KEY = get_secret("API_KEY")
+BASE_URL = get_secret("BASE_URL", "https://api.gptsapi.net/v1")
+MODEL = get_secret("MODEL", "gpt-5.4-mini")
+TRANSCRIPTION_MODEL = get_secret("TRANSCRIPTION_MODEL", "whisper-1")
 MOCK_PART3_QUESTION_COUNT = 4
 PRACTICE_PART3_QUESTION_COUNT = 6
+
+if not API_KEY:
+    st.error(
+        "Missing API_KEY. Please add API_KEY in Streamlit Cloud → App settings → Secrets."
+    )
+    st.stop()
 
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
@@ -236,13 +257,6 @@ def get_part3_question_count():
     return MOCK_PART3_QUESTION_COUNT
 
 
-# --- WEB APP SETUP ---
-st.set_page_config(
-    page_title="IELTS Victoria Pro",
-    page_icon="🎓",
-    layout="centered",
-)
-
 st.markdown(
     """
     <style>
@@ -448,6 +462,37 @@ def export_transcript():
     return "\n".join(lines)
 
 
+def record_candidate_answer(phase, question, answer, source, duration):
+    word_count = len(re.findall(r"[A-Za-z']+", answer))
+    st.session_state.candidate_answers.append(
+        {
+            "phase": phase,
+            "question": question,
+            "answer": answer,
+            "source": source,
+            "duration": round(duration, 1) if duration else None,
+            "word_count": word_count,
+        }
+    )
+
+
+def export_candidate_answer_log():
+    if not st.session_state.candidate_answers:
+        return "No candidate answers were submitted."
+
+    lines = ["Raw candidate answers only", ""]
+    for index, item in enumerate(st.session_state.candidate_answers, start=1):
+        lines.append(f"{index}. Stage: {item['phase']}")
+        lines.append(f"Question: {item['question']}")
+        lines.append(f"Candidate answer: {item['answer']}")
+        lines.append(
+            f"Input source: {item['source']}; word count: {item['word_count']}; "
+            f"recorded duration: {item['duration'] if item['duration'] else 'N/A'} seconds"
+        )
+        lines.append("")
+    return "\n".join(lines)
+
+
 def render_countdown(end_time, label):
     remaining = max(0, int(end_time - time.time()))
     components.html(
@@ -626,7 +671,11 @@ def process_candidate_answer(answer, previous_question, answer_duration=None):
     else:
         st.session_state.current_question = next_content
 
-    return build_reply(correction, expression_tip, upgraded_answer, next_content), start_prep_timer
+    return (
+        build_reply(correction, expression_tip, upgraded_answer, next_content),
+        start_prep_timer,
+        next_content,
+    )
 
 
 # --- SESSION STATE ---
@@ -656,8 +705,10 @@ if "messages" not in st.session_state:
     st.session_state.test_active = True
     st.session_state.practice_mode = True
     st.session_state.answer_expansion_mode = True
+    st.session_state.speak_full_reply = False
     st.session_state.part3_target_count = PRACTICE_PART3_QUESTION_COUNT
     st.session_state.answer_stats = []
+    st.session_state.candidate_answers = []
     st.session_state.audio_input_key = 0
 
 
@@ -682,6 +733,15 @@ with st.sidebar:
         help=(
             "After your answer, Victoria preserves your idea and shows a natural "
             "two-to-three-sentence version at about IELTS Band 6.5-7 level."
+        ),
+    )
+
+    st.toggle(
+        "Read full feedback aloud",
+        key="speak_full_reply",
+        help=(
+            "Off: Victoria only reads the next question or instruction aloud. "
+            "On: Victoria reads corrections and upgraded answers as well."
         ),
     )
 
@@ -750,7 +810,9 @@ with st.sidebar:
 
     if st.button("End Test & Get Score", use_container_width=True):
         report_prompt = f"""
-Create a clear IELTS Speaking practice report from this conversation.
+Create a clear IELTS Speaking practice report based ONLY on the raw candidate answers below.
+Do not evaluate Victoria's feedback, corrections, upgraded answers, or prompts as if they were
+the candidate's language.
 
 Include:
 1. An estimated overall band score, clearly labelled as an estimate.
@@ -765,6 +827,9 @@ Include:
 Audio timing information:
 {audio_stats_summary()}
 
+Raw answer log:
+{export_candidate_answer_log()}
+
 Use timing and speaking-rate data only when recorded audio was available.
 Ignore spelling, capitalization, and punctuation because the answers are speech-to-text transcripts.
 Focus on spoken grammar, word choice, semantic precision, fluency, coherence, and answer development.
@@ -772,8 +837,15 @@ State clearly that pronunciation cannot be assessed reliably without acoustic an
 """
         with st.spinner("Victoria is preparing your report..."):
             try:
-                report_messages = st.session_state.messages + [
-                    {"role": "user", "content": report_prompt}
+                report_messages = [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a strict but helpful IELTS Speaking examiner. "
+                            "Score only the candidate's raw answers, not the coaching feedback."
+                        ),
+                    },
+                    {"role": "user", "content": report_prompt},
                 ]
                 st.session_state.final_report = call_model(report_messages)
                 st.session_state.test_active = False
@@ -866,21 +938,29 @@ if st.session_state.test_active:
 
     if user_input:
         answer_phase = st.session_state.phase
+        previous_question = st.session_state.current_question
         with st.chat_message("user"):
             st.markdown(user_input)
             if input_source == "audio" and answer_duration:
                 st.caption(f"Recorded answer: {answer_duration:.1f} seconds")
         st.session_state.messages.append({"role": "user", "content": user_input})
         save_answer_stats(user_input, input_source, answer_duration, answer_phase)
+        record_candidate_answer(
+            answer_phase,
+            previous_question,
+            user_input,
+            input_source,
+            answer_duration,
+        )
 
         with st.chat_message("assistant"):
             placeholder = st.empty()
             placeholder.markdown("*(Victoria is evaluating...)*")
 
             try:
-                ai_reply, start_prep_timer = process_candidate_answer(
+                ai_reply, start_prep_timer, spoken_text = process_candidate_answer(
                     user_input,
-                    st.session_state.current_question,
+                    previous_question,
                     answer_duration,
                 )
                 placeholder.markdown(ai_reply)
@@ -898,6 +978,6 @@ if st.session_state.test_active:
                             st.session_state.timer_label,
                         )
                 try:
-                    speak_text(ai_reply)
+                    speak_text(ai_reply if st.session_state.speak_full_reply else spoken_text)
                 except Exception:
                     st.warning("The text reply worked, but audio could not be generated this time.")
