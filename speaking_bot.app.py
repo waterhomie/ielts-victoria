@@ -22,6 +22,7 @@ API_KEY = st.secrets["API_KEY"]
 BASE_URL = "https://api.gptsapi.net/v1"
 MODEL = "gpt-5.4-mini"
 TRANSCRIPTION_MODEL = "whisper-1"
+PART3_QUESTION_COUNT = 5
 
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
@@ -111,10 +112,12 @@ The program controls the test stages. Do not infer the stage from the conversati
 FEEDBACK_COACH_PROMPT = """
 You are a careful spoken-English feedback coach for an IELTS practice app.
 The candidate's answer is a speech-to-text transcript, not written English.
-Use the examiner's question to understand the intended meaning, tense, and context.
+Use the examiner's question to understand the intended meaning, tense, emotion,
+and context behind the answer.
 
-Return exactly two labelled lines in this order:
+Return exactly three labelled lines in this order:
 CORRECTION: NONE
+EXPRESSION_TIP: NONE
 UPGRADED_ANSWER: NONE
 
 Replace NONE only when the relevant rules below require content.
@@ -135,23 +138,38 @@ Correction rules:
 - For a long answer, rewrite only one coherent sentence containing the two
   highest-impact improvements.
 
+Expression-tip rules:
+- This is for meaning and idiomatic word choice, not spelling.
+- Use EXPRESSION_TIP only when the candidate's word is too vague, unnatural,
+  misleading, or too literal for the meaning they probably want to express.
+- Help the candidate find the English phrase that better matches the same context
+  and emotion. For example, if "sad" is being used to mean being misunderstood
+  after doing something kind, suggest "felt wronged", "felt misunderstood", or
+  "felt unfairly treated".
+- Do not give an expression tip if the answer is already natural enough.
+- Do not correct capitalization, punctuation, proper-name capitalization, or
+  speech-to-text spelling noise through EXPRESSION_TIP.
+- Keep EXPRESSION_TIP to one short sentence.
+
 Personalized answer-upgrade rules:
 - The user message will contain ENABLE_UPGRADE: YES or NO.
 - If it is NO, use UPGRADED_ANSWER: NONE.
 - If it is YES, produce a natural first-person answer of two or three sentences,
   no more than 60 words.
-- Preserve the candidate's own central idea and personal viewpoint.
+- Preserve the candidate's own central idea, emotion, and personal viewpoint.
 - Develop that idea with a relevant reason, detail, consequence, comparison, or
   simple example. Do not replace it with a different opinion.
 - Do not invent specific names, places, dates, achievements, or life experiences.
 - Make the answer sound like attainable IELTS Band 6.5-7 English, not a memorized essay.
-- The upgraded answer must already incorporate any genuine correction.
+- The upgraded answer must already incorporate any genuine correction and any
+  better expression suggested in EXPRESSION_TIP.
 
 Example 1:
 ENABLE_UPGRADE: YES
 Question: "Do you enjoy your studies?"
 Answer: "yes i do"
 CORRECTION: NONE
+EXPRESSION_TIP: NONE
 UPGRADED_ANSWER: Yes, I do. I enjoy learning how buildings are designed because it combines creativity with practical problem-solving.
 
 Example 2:
@@ -159,6 +177,7 @@ ENABLE_UPGRADE: YES
 Question: "What do you enjoy most about your studies?"
 Answer: "i prefer study design because it is creative"
 CORRECTION: I prefer studying design because it is creative.
+EXPRESSION_TIP: NONE
 UPGRADED_ANSWER: I prefer studying design because it allows me to be creative. I particularly enjoy turning an initial idea into something practical and visually interesting.
 
 Example 3:
@@ -166,6 +185,7 @@ ENABLE_UPGRADE: NO
 Question: "Has your hometown changed much?"
 Answer: "yes it become more quiet because of the youth loss"
 CORRECTION: Yes, it has become quieter because many young people have moved away.
+EXPRESSION_TIP: NONE
 UPGRADED_ANSWER: NONE
 
 Example 4:
@@ -173,12 +193,21 @@ ENABLE_UPGRADE: YES
 Question: "What subject do you study?"
 Answer: "achitecture"
 CORRECTION: NONE
+EXPRESSION_TIP: NONE
 UPGRADED_ANSWER: I study architecture. I chose this subject because I am interested in both creative design and the way buildings affect people's daily lives.
+
+Example 5:
+ENABLE_UPGRADE: YES
+Question: "How did you feel when people misunderstood you?"
+Answer: "i was very sad because i did a good thing but they thought i was wrong"
+CORRECTION: NONE
+EXPRESSION_TIP: Instead of "sad", "I felt misunderstood and unfairly treated" matches this situation more precisely.
+UPGRADED_ANSWER: I felt misunderstood and unfairly treated because I had tried to do something kind, but people interpreted it in the wrong way. It was discouraging because my intention was completely different from how it was seen.
 """
 
 
-PART3_ADAPTIVE_PROMPT = """
-You are an IELTS Speaking examiner preparing exactly FOUR Part 3 discussion questions.
+PART3_ADAPTIVE_PROMPT = f"""
+You are an IELTS Speaking examiner preparing exactly {PART3_QUESTION_COUNT} Part 3 discussion questions.
 
 Use both sources:
 1. The recall-question-bank questions supplied for this Part 2 topic.
@@ -186,14 +215,14 @@ Use both sources:
 
 Rules:
 - Keep the questions clearly connected to the recall-question-bank topic.
-- Questions 1 and 2 should closely reflect useful angles from the question bank.
-- At least one later question should extend an idea actually mentioned by the candidate.
+- Questions 1 to 3 should closely reflect useful angles from the question bank.
+- At least two later questions should extend ideas actually mentioned by the candidate.
 - Turn personal details into broader analytical discussion about people, society, causes,
   comparisons, advantages and disadvantages, rules, or future change.
 - Do not merely ask the candidate to repeat or add details to the Part 2 story.
 - Do not assume the candidate said something that is absent from the transcript.
 - Move from relatively accessible discussion to more abstract critical thinking.
-- Return exactly four numbered, single-sentence questions and no other text.
+- Return exactly {PART3_QUESTION_COUNT} numbered, single-sentence questions and no other text.
 """
 
 
@@ -228,15 +257,16 @@ def call_model(messages):
 
 def generate_adaptive_part3_questions(card, candidate_part2_answers):
     reference_questions = card.get("part3") or []
-    fallback = list(reference_questions[:4])
-    if len(fallback) < 4:
+    fallback = list(reference_questions[:PART3_QUESTION_COUNT])
+    if len(fallback) < PART3_QUESTION_COUNT:
         fallback.extend(
             [
                 "Why might people have different opinions about this topic?",
                 "How has this aspect of life changed in recent years?",
                 "Are younger and older people likely to think differently about it?",
                 "How might this topic develop in the future?",
-            ][: 4 - len(fallback)]
+                "What could individuals or governments do to improve this situation?",
+            ][: PART3_QUESTION_COUNT - len(fallback)]
         )
 
     reference_text = "\n".join(f"- {question}" for question in reference_questions)
@@ -271,16 +301,31 @@ def generate_adaptive_part3_questions(card, candidate_part2_answers):
         for question in fallback:
             if question not in questions:
                 questions.append(question)
-            if len(questions) == 4:
+            if len(questions) == PART3_QUESTION_COUNT:
                 break
 
-    return questions[:4]
+    return questions[:PART3_QUESTION_COUNT]
+
+
+def extract_feedback_field(model_output, label_pattern):
+    match = re.search(
+        rf"(?ims)^\s*{label_pattern}:\s*(.*?)(?=^\s*(?:CORRECTION|EXPRESSION_TIP|UPGRADED[_ ]ANSWER):|\Z)",
+        model_output,
+    )
+    if not match:
+        return None
+
+    value = match.group(1).strip()
+    value = re.sub(r"^```(?:\w+)?\s*|\s*```$", "", value).strip()
+    if not value or value.upper() == "NONE":
+        return None
+    return value
 
 
 def coach_spoken_answer(question, answer, include_upgrade):
     spoken_words = re.findall(r"[A-Za-z']+", answer)
     if not spoken_words:
-        return None, None
+        return None, None, None
 
     result = call_model(
         [
@@ -296,25 +341,15 @@ def coach_spoken_answer(question, answer, include_upgrade):
         ]
     )
 
-    correction_match = re.search(
-        r"(?im)^CORRECTION:\s*(.+?)\s*$",
-        result,
-    )
-    upgrade_match = re.search(
-        r"(?ims)^UPGRADED[_ ]ANSWER:\s*(.+?)\s*(?:```)?$",
-        result,
-    )
+    correction = extract_feedback_field(result, "CORRECTION")
+    expression_tip = extract_feedback_field(result, "EXPRESSION_TIP")
+    upgraded_answer = extract_feedback_field(result, "UPGRADED[_ ]ANSWER")
 
-    correction = correction_match.group(1).strip() if correction_match else None
-    upgraded_answer = upgrade_match.group(1).strip() if upgrade_match else None
-
-    if correction and correction.upper() == "NONE":
-        correction = None
-    if upgraded_answer and upgraded_answer.upper() == "NONE":
-        upgraded_answer = None
+    if expression_tip and correction and expression_tip.lower() == correction.lower():
+        expression_tip = None
 
     # Safe default: never display unstructured model output.
-    return correction, upgraded_answer
+    return correction, expression_tip, upgraded_answer
 
 
 def speak_text(text):
@@ -455,12 +490,14 @@ def choose_part1_followups(answer):
     return personal_questions + st.session_state.part1_secondary_questions
 
 
-def build_reply(correction, upgraded_answer, next_content):
+def build_reply(correction, expression_tip, upgraded_answer, next_content):
     sections = []
     if correction:
         sections.append(f"**Quick correction:** {correction}")
+    if expression_tip:
+        sections.append(f"**Better expression:** {expression_tip}")
     if upgraded_answer:
-        sections.append(f"**A fuller version of your answer:**\n\n> {upgraded_answer}")
+        sections.append(f"**A natural version of your answer:**\n\n> {upgraded_answer}")
     sections.append(next_content)
     return "\n\n".join(sections)
 
@@ -469,6 +506,7 @@ def build_reply(correction, upgraded_answer, next_content):
 def process_candidate_answer(answer, previous_question, answer_duration=None):
     phase = st.session_state.phase
     correction = None
+    expression_tip = None
     upgraded_answer = None
     include_upgrade = (
         st.session_state.practice_mode
@@ -476,7 +514,7 @@ def process_candidate_answer(answer, previous_question, answer_duration=None):
         and phase in {"part1", "part2_followup", "part3"}
     )
     if st.session_state.practice_mode and phase != "identity":
-        correction, upgraded_answer = coach_spoken_answer(
+        correction, expression_tip, upgraded_answer = coach_spoken_answer(
             previous_question,
             answer,
             include_upgrade,
@@ -576,7 +614,7 @@ def process_candidate_answer(answer, previous_question, answer_duration=None):
     else:
         st.session_state.current_question = next_content
 
-    return build_reply(correction, upgraded_answer, next_content), start_prep_timer
+    return build_reply(correction, expression_tip, upgraded_answer, next_content), start_prep_timer
 
 
 # --- SESSION STATE ---
@@ -615,18 +653,21 @@ with st.sidebar:
     st.header("Exam Tools")
 
     st.toggle(
-        "Practice mode - instant spoken corrections",
+        "Practice mode - correction & expression coaching",
         key="practice_mode",
-        help="Turn this off for a realistic exam with feedback only at the end.",
+        help=(
+            "Turn this off for a realistic exam with feedback only at the end. "
+            "When it is on, Victoria can correct spoken errors and suggest more precise expressions."
+        ),
     )
 
     st.toggle(
-        "Personalized answer expansion",
+        "Personalized answer upgrade",
         key="answer_expansion_mode",
         disabled=not st.session_state.practice_mode,
         help=(
             "After your answer, Victoria preserves your idea and shows a natural "
-            "two-to-three-sentence expanded version."
+            "two-to-three-sentence version at about IELTS Band 6.5-7 level."
         ),
     )
 
@@ -691,13 +732,16 @@ Include:
    Grammatical Range and Accuracy, each supported by evidence from the answers.
 3. The candidate's three most important recurring spoken-language problems.
 4. Three natural corrected examples based on the candidate's own meaning.
-5. A focused seven-day improvement plan.
+5. Two examples where a more precise or idiomatic expression would better match
+   the candidate's intended meaning.
+6. A focused seven-day improvement plan.
 
 Audio timing information:
 {audio_stats_summary()}
 
 Use timing and speaking-rate data only when recorded audio was available.
 Ignore spelling, capitalization, and punctuation because the answers are speech-to-text transcripts.
+Focus on spoken grammar, word choice, semantic precision, fluency, coherence, and answer development.
 State clearly that pronunciation cannot be assessed reliably without acoustic analysis.
 """
         with st.spinner("Victoria is preparing your report..."):
