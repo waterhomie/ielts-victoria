@@ -22,7 +22,8 @@ API_KEY = st.secrets["API_KEY"]
 BASE_URL = "https://api.gptsapi.net/v1"
 MODEL = "gpt-5.4-mini"
 TRANSCRIPTION_MODEL = "whisper-1"
-PART3_QUESTION_COUNT = 5
+MOCK_PART3_QUESTION_COUNT = 4
+PRACTICE_PART3_QUESTION_COUNT = 6
 
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
@@ -206,8 +207,9 @@ UPGRADED_ANSWER: I felt misunderstood and unfairly treated because I had tried t
 """
 
 
-PART3_ADAPTIVE_PROMPT = f"""
-You are an IELTS Speaking examiner preparing exactly {PART3_QUESTION_COUNT} Part 3 discussion questions.
+def build_part3_adaptive_prompt(question_count):
+    return f"""
+You are an IELTS Speaking examiner preparing exactly {question_count} Part 3 discussion questions.
 
 Use both sources:
 1. The recall-question-bank questions supplied for this Part 2 topic.
@@ -215,15 +217,23 @@ Use both sources:
 
 Rules:
 - Keep the questions clearly connected to the recall-question-bank topic.
-- Questions 1 to 3 should closely reflect useful angles from the question bank.
-- At least two later questions should extend ideas actually mentioned by the candidate.
+- In mock-test mode, this should feel like a realistic 4-5 minute Part 3 discussion.
+- In practice mode, this may be slightly more intensive for training.
+- The earlier questions should closely reflect useful angles from the question bank.
+- At least one later question should extend an idea actually mentioned by the candidate.
 - Turn personal details into broader analytical discussion about people, society, causes,
   comparisons, advantages and disadvantages, rules, or future change.
 - Do not merely ask the candidate to repeat or add details to the Part 2 story.
 - Do not assume the candidate said something that is absent from the transcript.
 - Move from relatively accessible discussion to more abstract critical thinking.
-- Return exactly {PART3_QUESTION_COUNT} numbered, single-sentence questions and no other text.
+- Return exactly {question_count} numbered, single-sentence questions and no other text.
 """
+
+
+def get_part3_question_count():
+    if st.session_state.get("practice_mode", True):
+        return PRACTICE_PART3_QUESTION_COUNT
+    return MOCK_PART3_QUESTION_COUNT
 
 
 # --- WEB APP SETUP ---
@@ -255,10 +265,10 @@ def call_model(messages):
     return response.choices[0].message.content.strip()
 
 
-def generate_adaptive_part3_questions(card, candidate_part2_answers):
+def generate_adaptive_part3_questions(card, candidate_part2_answers, question_count):
     reference_questions = card.get("part3") or []
-    fallback = list(reference_questions[:PART3_QUESTION_COUNT])
-    if len(fallback) < PART3_QUESTION_COUNT:
+    fallback = list(reference_questions[:question_count])
+    if len(fallback) < question_count:
         fallback.extend(
             [
                 "Why might people have different opinions about this topic?",
@@ -266,7 +276,7 @@ def generate_adaptive_part3_questions(card, candidate_part2_answers):
                 "Are younger and older people likely to think differently about it?",
                 "How might this topic develop in the future?",
                 "What could individuals or governments do to improve this situation?",
-            ][: PART3_QUESTION_COUNT - len(fallback)]
+            ][: question_count - len(fallback)]
         )
 
     reference_text = "\n".join(f"- {question}" for question in reference_questions)
@@ -277,7 +287,7 @@ def generate_adaptive_part3_questions(card, candidate_part2_answers):
     try:
         result = call_model(
             [
-                {"role": "system", "content": PART3_ADAPTIVE_PROMPT},
+                {"role": "system", "content": build_part3_adaptive_prompt(question_count)},
                 {
                     "role": "user",
                     "content": (
@@ -297,14 +307,14 @@ def generate_adaptive_part3_questions(card, candidate_part2_answers):
         if cleaned.endswith("?") and cleaned not in questions:
             questions.append(cleaned)
 
-    if len(questions) < 4:
+    if len(questions) < question_count:
         for question in fallback:
             if question not in questions:
                 questions.append(question)
-            if len(questions) == PART3_QUESTION_COUNT:
+            if len(questions) == question_count:
                 break
 
-    return questions[:PART3_QUESTION_COUNT]
+    return questions[:question_count]
 
 
 def extract_feedback_field(model_output, label_pattern):
@@ -578,9 +588,11 @@ def process_candidate_answer(answer, previous_question, answer_duration=None):
 
     elif phase == "part2_followup":
         st.session_state.part2_answers.append(answer)
+        st.session_state.part3_target_count = get_part3_question_count()
         st.session_state.part3_questions = generate_adaptive_part3_questions(
             st.session_state.cue_card,
             st.session_state.part2_answers,
+            st.session_state.part3_target_count,
         )
         st.session_state.phase = "part3"
         st.session_state.part3_index = 1
@@ -644,6 +656,7 @@ if "messages" not in st.session_state:
     st.session_state.test_active = True
     st.session_state.practice_mode = True
     st.session_state.answer_expansion_mode = True
+    st.session_state.part3_target_count = PRACTICE_PART3_QUESTION_COUNT
     st.session_state.answer_stats = []
     st.session_state.audio_input_key = 0
 
@@ -657,7 +670,8 @@ with st.sidebar:
         key="practice_mode",
         help=(
             "Turn this off for a realistic exam with feedback only at the end. "
-            "When it is on, Victoria can correct spoken errors and suggest more precise expressions."
+            "When it is on, Victoria can correct spoken errors, suggest more precise "
+            "expressions, and ask a slightly longer Part 3 for training."
         ),
     )
 
@@ -680,6 +694,18 @@ with st.sidebar:
         "complete": "Complete",
     }.get(st.session_state.phase, "Part 1")
     st.info(f"Current stage: {current_part}")
+
+    if st.session_state.phase == "part3":
+        st.caption(
+            f"Part 3 plan: {len(st.session_state.part3_questions)} main questions "
+            "generated from the topic bank and your Part 2 answer."
+        )
+    else:
+        planned_part3_count = get_part3_question_count()
+        mode_label = "practice" if st.session_state.practice_mode else "mock-test"
+        st.caption(
+            f"Part 3 will use about {planned_part3_count} main questions in {mode_label} mode."
+        )
 
     progress_value = {
         "identity": 0.05,
