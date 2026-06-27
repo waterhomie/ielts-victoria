@@ -476,12 +476,17 @@ def record_candidate_answer(phase, question, answer, source, duration):
     )
 
 
-def export_candidate_answer_log():
-    if not st.session_state.candidate_answers:
+def export_candidate_answer_log(include_identity=False):
+    answers = [
+        item
+        for item in st.session_state.candidate_answers
+        if include_identity or item["phase"] != "identity"
+    ]
+    if not answers:
         return "No candidate answers were submitted."
 
     lines = ["Raw candidate answers only", ""]
-    for index, item in enumerate(st.session_state.candidate_answers, start=1):
+    for index, item in enumerate(answers, start=1):
         lines.append(f"{index}. Stage: {item['phase']}")
         lines.append(f"Question: {item['question']}")
         lines.append(f"Candidate answer: {item['answer']}")
@@ -705,6 +710,7 @@ if "messages" not in st.session_state:
     st.session_state.test_active = True
     st.session_state.practice_mode = True
     st.session_state.answer_expansion_mode = True
+    st.session_state.voice_playback_enabled = True
     st.session_state.speak_full_reply = False
     st.session_state.part3_target_count = PRACTICE_PART3_QUESTION_COUNT
     st.session_state.answer_stats = []
@@ -737,12 +743,26 @@ with st.sidebar:
     )
 
     st.toggle(
+        "Enable voice playback",
+        key="voice_playback_enabled",
+        help=(
+            "Turn this off if you only want text replies or if speech playback is slow."
+        ),
+    )
+
+    st.toggle(
         "Read full feedback aloud",
         key="speak_full_reply",
+        disabled=not st.session_state.voice_playback_enabled,
         help=(
             "Off: Victoria only reads the next question or instruction aloud. "
             "On: Victoria reads corrections and upgraded answers as well."
         ),
+    )
+
+    st.caption(
+        "Privacy note: recordings and transcripts may be sent to your configured "
+        "API provider for transcription, feedback, and speech playback."
     )
 
     current_part = {
@@ -866,6 +886,13 @@ if "final_report" in st.session_state:
     st.header("Final Exam Report")
     with st.container(border=True):
         st.markdown(st.session_state.final_report)
+    st.download_button(
+        "Download Final Report",
+        data=st.session_state.final_report,
+        file_name="ielts_victoria_final_report.txt",
+        mime="text/plain",
+        use_container_width=True,
+    )
     if st.button("Start a New Test", use_container_width=True):
         reset_test()
     st.stop()
@@ -977,7 +1004,10 @@ if st.session_state.test_active:
                             st.session_state.timer_end,
                             st.session_state.timer_label,
                         )
-                try:
-                    speak_text(ai_reply if st.session_state.speak_full_reply else spoken_text)
-                except Exception:
-                    st.warning("The text reply worked, but audio could not be generated this time.")
+                if st.session_state.voice_playback_enabled:
+                    try:
+                        speak_text(ai_reply if st.session_state.speak_full_reply else spoken_text)
+                    except Exception:
+                        st.warning(
+                            "The text reply worked, but audio could not be generated this time."
+                        )
