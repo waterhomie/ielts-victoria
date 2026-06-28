@@ -183,17 +183,19 @@ The app may process:
 - Transcribed text
 - Practice reports
 
-The current input interface uses a compact, voice-first Answer Composer built
-with native Streamlit widgets:
+The current input interface uses a custom frontend voice composer instead of
+Streamlit's native `st.audio_input`:
 
 - Voice mode by default
-- browser recording
-- automatic transcribe-and-submit after recording stops
+- browser recording through MediaRecorder
+- hold-to-speak style interaction
+- automatic audio upload to Python after recording stops
+- Whisper-compatible transcription in Python
 - optional transcript review before submission
 - Type mode with a small text input
 
-A true WeChat-style chat bar with an embedded microphone / press-to-talk behavior
-would require a custom frontend component beyond native `st.chat_input`.
+This avoids the native Streamlit recorder problem where the previous recording
+can remain visible after the next question appears.
 
 Privacy rule:
 
