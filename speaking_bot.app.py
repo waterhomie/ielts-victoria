@@ -40,6 +40,7 @@ TRANSCRIPTION_MODEL = get_secret("TRANSCRIPTION_MODEL", "whisper-1")
 MOCK_PART3_QUESTION_COUNT = 4
 PRACTICE_PART3_QUESTION_COUNT = 6
 PART3_MAX_QUESTION_COUNT = 6
+LONG_ANSWER_WORD_THRESHOLD = 45
 
 if not API_KEY:
     st.error(
@@ -144,6 +145,7 @@ EXPRESSION_TIP: NONE
 UPGRADED_ANSWER: NONE
 
 Replace NONE only when the relevant rules below require content.
+The user message also includes ANSWER_LENGTH: SHORT or LONG.
 
 Correction rules:
 - Silently ask: "Could this error actually be heard?"
@@ -157,9 +159,11 @@ Correction rules:
   or spoken fluency.
 - The corrected version must be natural English, not a mechanical word-for-word repair.
 - Preserve the candidate's intended meaning and use the tense required by the question.
-- Do not explain grammar rules and do not list several quoted fragments.
-- For a long answer, rewrite only one coherent sentence containing the two
-  highest-impact improvements.
+- Do not explain grammar rules.
+- For ANSWER_LENGTH: SHORT, give at most one corrected sentence.
+- For ANSWER_LENGTH: LONG, give up to three numbered high-impact corrections,
+  each with the candidate's original problem briefly named and a natural corrected version.
+  Focus only on errors that most damage spoken clarity.
 
 Expression-tip rules:
 - This is for meaning and idiomatic word choice, not spelling.
@@ -182,6 +186,9 @@ Personalized answer-upgrade rules:
 - Preserve the candidate's own central idea, emotion, and personal viewpoint.
 - Develop that idea with a relevant reason, detail, consequence, comparison, or
   simple example. Do not replace it with a different opinion.
+- Do not add a new motivation, personal history, future plan, or value judgement
+  unless the candidate already clearly expressed it.
+- If the answer is very short, only make it more natural; do not invent a reason.
 - Do not invent specific names, places, dates, achievements, or life experiences.
 - Make the answer sound like attainable IELTS Band 6.5-7 English, not a memorized essay.
 - The upgraded answer must already incorporate any genuine correction and any
@@ -189,14 +196,16 @@ Personalized answer-upgrade rules:
 
 Example 1:
 ENABLE_UPGRADE: YES
+ANSWER_LENGTH: SHORT
 Question: "Do you enjoy your studies?"
 Answer: "yes i do"
 CORRECTION: NONE
 EXPRESSION_TIP: NONE
-UPGRADED_ANSWER: Yes, I do. I enjoy learning how buildings are designed because it combines creativity with practical problem-solving.
+UPGRADED_ANSWER: Yes, I do. I enjoy my studies.
 
 Example 2:
 ENABLE_UPGRADE: YES
+ANSWER_LENGTH: SHORT
 Question: "What do you enjoy most about your studies?"
 Answer: "i prefer study design because it is creative"
 CORRECTION: I prefer studying design because it is creative.
@@ -205,6 +214,7 @@ UPGRADED_ANSWER: I prefer studying design because it allows me to be creative. I
 
 Example 3:
 ENABLE_UPGRADE: NO
+ANSWER_LENGTH: SHORT
 Question: "Has your hometown changed much?"
 Answer: "yes it become more quiet because of the youth loss"
 CORRECTION: Yes, it has become quieter because many young people have moved away.
@@ -213,14 +223,16 @@ UPGRADED_ANSWER: NONE
 
 Example 4:
 ENABLE_UPGRADE: YES
+ANSWER_LENGTH: SHORT
 Question: "What subject do you study?"
 Answer: "achitecture"
 CORRECTION: NONE
 EXPRESSION_TIP: NONE
-UPGRADED_ANSWER: I study architecture. I chose this subject because I am interested in both creative design and the way buildings affect people's daily lives.
+UPGRADED_ANSWER: I study architecture.
 
 Example 5:
 ENABLE_UPGRADE: YES
+ANSWER_LENGTH: LONG
 Question: "How did you feel when people misunderstood you?"
 Answer: "i was very sad because i did a good thing but they thought i was wrong"
 CORRECTION: NONE
@@ -239,6 +251,8 @@ Use both sources:
 
 Rules:
 - Keep the questions clearly connected to the recall-question-bank topic.
+- If the latest answer mentions a concrete example, job, object, place, person, or
+  reason, make the next question visibly connected to that detail when possible.
 - Use the latest answer to choose a useful next angle: reasons, comparison, consequences,
   advantages and disadvantages, social impact, rules, or future change.
 - Turn personal details into broader analytical discussion about people, society, causes,
@@ -246,6 +260,8 @@ Rules:
 - Do not merely ask the candidate to repeat or add details to the Part 2 story.
 - Do not assume the candidate said something that is absent from the transcript.
 - Do not repeat any already-asked Part 3 question.
+- Do not repeat the same discussion angle. For example, if advantages/disadvantages
+  have already been asked, do not ask another benefits/drawbacks question.
 - Return exactly ONE single-sentence question and no other text.
 """
 
@@ -348,9 +364,106 @@ def normalize_question(question):
     return re.sub(r"\s+", " ", question).strip().lower()
 
 
+PART3_ANGLE_KEYWORDS = {
+    "benefits_drawbacks": [
+        "advantage",
+        "advantages",
+        "disadvantage",
+        "disadvantages",
+        "benefit",
+        "benefits",
+        "drawback",
+        "drawbacks",
+        "positive",
+        "negative",
+    ],
+    "career_work": [
+        "career",
+        "company",
+        "companies",
+        "qualification",
+        "qualifications",
+        "job",
+        "jobs",
+        "work",
+        "workplace",
+        "salary",
+        "employer",
+    ],
+    "personal_qualities": [
+        "quality",
+        "qualities",
+        "personality",
+        "courage",
+        "outgoing",
+        "independent",
+        "adaptable",
+        "skill",
+        "skills",
+    ],
+    "culture_language": [
+        "culture",
+        "cultural",
+        "language",
+        "foreign",
+        "abroad",
+        "international",
+        "adapt",
+        "adaptation",
+    ],
+    "society_policy": [
+        "society",
+        "government",
+        "rule",
+        "rules",
+        "policy",
+        "policies",
+        "public",
+        "community",
+    ],
+    "future_change": [
+        "future",
+        "change",
+        "changed",
+        "develop",
+        "developed",
+        "technology",
+        "trend",
+    ],
+    "age_group": [
+        "young",
+        "younger",
+        "older",
+        "children",
+        "teenagers",
+        "adults",
+        "generation",
+    ],
+}
+
+
+def classify_part3_angle(question):
+    normalized = normalize_question(question)
+    scores = {}
+    for angle, keywords in PART3_ANGLE_KEYWORDS.items():
+        score = sum(1 for keyword in keywords if re.search(rf"\b{re.escape(keyword)}\b", normalized))
+        if score:
+            scores[angle] = score
+    if not scores:
+        return "general_reasoning"
+    return max(scores, key=scores.get)
+
+
 def fallback_part3_question(card, asked_questions):
     asked = {normalize_question(question) for question in asked_questions}
+    used_angles = {classify_part3_angle(question) for question in asked_questions}
     fallback_pool = list(card.get("part3") or []) + GENERIC_PART3_FALLBACKS
+    for question in fallback_pool:
+        if (
+            normalize_question(question) not in asked
+            and classify_part3_angle(question) not in used_angles
+        ):
+            return question
     for question in fallback_pool:
         if normalize_question(question) not in asked:
             return question
@@ -400,6 +513,8 @@ def generate_next_part3_question(
     asked_text = "\n".join(f"- {question}" for question in asked_questions)
     if not asked_text:
         asked_text = "No Part 3 question has been asked yet."
+    used_angles = sorted({classify_part3_angle(question) for question in asked_questions})
+    used_angle_text = ", ".join(used_angles) if used_angles else "None yet."
 
     try:
         result = call_model(
@@ -412,6 +527,7 @@ def generate_next_part3_question(
                         f"REFERENCE PART 3 QUESTIONS:\n{reference_text}\n\n"
                         f"CANDIDATE'S PART 2 RESPONSES:\n{candidate_text}\n\n"
                         f"PART 3 QUESTIONS ALREADY ASKED:\n{asked_text}\n\n"
+                        f"DISCUSSION ANGLES ALREADY USED:\n{used_angle_text}\n\n"
                         f"PART 3 HISTORY SO FAR:\n{format_part3_history(part3_history)}\n\n"
                         f"Now generate question {question_number} of {target_count}."
                     ),
@@ -427,6 +543,8 @@ def generate_next_part3_question(
 
     asked = {normalize_question(item) for item in asked_questions}
     if normalize_question(question) in asked:
+        return fallback
+    if classify_part3_angle(question) in used_angles:
         return fallback
 
     return question
@@ -451,6 +569,7 @@ def coach_spoken_answer(question, answer, include_upgrade):
     spoken_words = re.findall(r"[A-Za-z']+", answer)
     if not spoken_words:
         return None, None, None
+    answer_length = "LONG" if len(spoken_words) >= LONG_ANSWER_WORD_THRESHOLD else "SHORT"
 
     result = call_model(
         [
@@ -459,6 +578,7 @@ def coach_spoken_answer(question, answer, include_upgrade):
                 "role": "user",
                 "content": (
                     f"ENABLE_UPGRADE: {'YES' if include_upgrade else 'NO'}\n\n"
+                    f"ANSWER_LENGTH: {answer_length}\n\n"
                     f"EXAMINER QUESTION:\n{question}\n\n"
                     f"CANDIDATE ANSWER:\n{answer}"
                 ),
@@ -638,6 +758,50 @@ def reset_test():
     st.rerun()
 
 
+def is_clarification_request(answer):
+    normalized = answer.lower()
+    patterns = [
+        r"\bi don't understand\b",
+        r"\bi do not understand\b",
+        r"\bi don't know what you (mean|want to ask)\b",
+        r"\bi do not know what you (mean|want to ask)\b",
+        r"\bwhat do you mean\b",
+        r"\bcould you (repeat|rephrase|explain)\b",
+        r"\bcan you (repeat|rephrase|explain)\b",
+        r"\bplease (repeat|rephrase|explain)\b",
+        r"\bi'm having trouble understanding\b",
+        r"\bi am having trouble understanding\b",
+    ]
+    return any(re.search(pattern, normalized) for pattern in patterns)
+
+
+def rephrase_question(question):
+    fallback = (
+        "No problem. Let me ask it more simply: "
+        f"{re.sub(r'^\\*\\*Part 3 - Discussion\\*\\*\\s*', '', question).strip()}"
+    )
+    try:
+        simplified = call_model(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an IELTS examiner. Rephrase the question in simpler, "
+                        "natural English. Return one question only. Do not answer it."
+                    ),
+                },
+                {"role": "user", "content": question},
+            ]
+        )
+    except Exception:
+        return fallback
+
+    simplified_question = extract_single_question(simplified)
+    if not simplified_question:
+        return fallback
+    return f"No problem. Let me ask it more simply: {simplified_question}"
+
+
 def choose_part1_followups(answer):
     normalized = answer.lower()
     if re.search(r"\b(student|study|studying|university|college|school)\b", normalized):
@@ -648,7 +812,11 @@ def choose_part1_followups(answer):
         personal_pool = PART1_GENERAL_FOLLOWUPS
 
     personal_questions = random.sample(personal_pool, k=min(2, len(personal_pool)))
-    return personal_questions + st.session_state.part1_secondary_questions
+    secondary_questions = list(st.session_state.part1_secondary_questions)
+    if secondary_questions:
+        topic_name = st.session_state.get("part1_topic", "another topic")
+        secondary_questions[0] = f"Let's talk about {topic_name}. {secondary_questions[0]}"
+    return personal_questions + secondary_questions
 
 
 def build_reply(correction, expression_tip, upgraded_answer, next_content):
@@ -765,29 +933,32 @@ def process_candidate_answer(answer, previous_question, answer_duration=None):
             if st.session_state.part3_questions
             else previous_question
         )
-        st.session_state.part3_history.append(
-            {"question": current_question, "answer": answer}
-        )
-        st.session_state.part3_index = len(st.session_state.part3_history)
-
-        if st.session_state.part3_index < st.session_state.part3_target_count:
-            next_question = generate_next_part3_question(
-                st.session_state.cue_card,
-                st.session_state.part2_answers,
-                st.session_state.part3_history,
-                st.session_state.part3_questions,
-                st.session_state.part3_index + 1,
-                st.session_state.part3_target_count,
-            )
-            st.session_state.part3_questions.append(next_question)
-            next_content = next_question
+        if is_clarification_request(answer):
+            next_content = rephrase_question(current_question)
         else:
-            st.session_state.phase = "complete"
-            st.session_state.test_active = False
-            next_content = (
-                "Thank you. That is the end of the speaking test. "
-                "Click **End Test & Get Score** to view your report."
+            st.session_state.part3_history.append(
+                {"question": current_question, "answer": answer}
             )
+            st.session_state.part3_index = len(st.session_state.part3_history)
+
+            if st.session_state.part3_index < st.session_state.part3_target_count:
+                next_question = generate_next_part3_question(
+                    st.session_state.cue_card,
+                    st.session_state.part2_answers,
+                    st.session_state.part3_history,
+                    st.session_state.part3_questions,
+                    st.session_state.part3_index + 1,
+                    st.session_state.part3_target_count,
+                )
+                st.session_state.part3_questions.append(next_question)
+                next_content = next_question
+            else:
+                st.session_state.phase = "complete"
+                st.session_state.test_active = False
+                next_content = (
+                    "Thank you. That is the end of the speaking test. "
+                    "Click **End Test & Get Score** to view your report."
+                )
 
     else:
         next_content = "The test is complete. Click **End Test & Get Score**."
@@ -971,7 +1142,11 @@ Include:
 4. Three natural corrected examples based on the candidate's own meaning.
 5. Two examples where a more precise or idiomatic expression would better match
    the candidate's intended meaning.
-6. A focused seven-day improvement plan.
+6. A focused "Next practice tasks" section with exactly three concrete tasks for
+   the next session, directly based on this transcript.
+
+Do not include a generic seven-day plan in the default report. If you mention a
+longer plan, keep it to one optional sentence after the three next-session tasks.
 
 Audio timing information:
 {audio_stats_summary()}
@@ -1040,9 +1215,10 @@ if st.session_state.test_active:
     input_source = "text"
     answer_duration = None
 
-    with st.expander("Record your answer", expanded=False):
+    with st.expander("Record your answer, then edit and submit", expanded=True):
         st.caption(
-            "Your recording is sent to your configured GPTs API provider for English transcription."
+            "Record in English, transcribe it, edit the transcript if needed, then submit. "
+            "Your recording is sent to your configured GPTs API provider for transcription."
         )
         recorder_key = st.session_state.audio_input_key
         recorded_audio = st.audio_input(
