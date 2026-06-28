@@ -139,16 +139,15 @@ Part 3 should be based on:
 1. The selected Part 2 cue card
 2. The question bank’s related Part 3 reference questions
 3. The candidate’s Part 2 answer and follow-up answer
+4. The candidate’s previous Part 3 answer
 
 Current behavior:
 
-- Practice mode: about 6 main Part 3 questions
+- Practice mode: up to 6 main Part 3 questions
 - Mock-test mode: about 4 main Part 3 questions
-
-Future preferred behavior:
-
 - Generate each Part 3 question dynamically after reading the previous Part 3 answer.
 - Use the learner’s answer depth to decide whether to ask for clarification, comparison, cause, consequence, social impact, or future change.
+- Fall back to reference bank questions if dynamic generation fails.
 
 ## 9. Question bank
 
