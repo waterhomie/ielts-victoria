@@ -36,6 +36,15 @@ Last updated: 2026-06-28
 - Added a turn reset token and post-answer rerun so the composer clears after each response
   and reappears under the latest examiner question instead of leaving the previous recording
   UI in the middle of the conversation.
+- Changed the voice composer from hold-to-speak to tap-to-record / tap-to-send, which is
+  safer on mobile browsers because long-press gestures can trigger native selection menus.
+- Reworked the browser recorder to generate compact 16kHz mono WAV audio in the frontend,
+  reducing mobile audio container issues such as failed duration parsing from iOS/WebView
+  recordings.
+- Added mobile-oriented iOS-style polish: glassy fixed bottom composer, safer touch behavior,
+  and smaller mobile title/layout spacing.
+- Suppressed "A natural version of your answer" when the candidate's answer is already
+  natural or nearly identical to the suggested rewrite, avoiding fake-looking feedback.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
