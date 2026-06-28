@@ -1,0 +1,581 @@
+from __future__ import annotations
+
+import base64
+from difflib import SequenceMatcher
+import io
+import os
+from pathlib import Path
+import random
+import re
+import sys
+import uuid
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from question_bank import (  # noqa: E402
+    EXTRA_CUE_CARDS,
+    PART1_SECONDARY_TOPICS,
+    PART1_STUDY_QUESTIONS,
+    PART1_WORK_QUESTIONS,
+)
+
+from .schemas import AnswerStats, CandidateAnswer, ChatMessage, ExamSession
+
+
+PART1_FIRST_QUESTION = "Do you work, or are you a student?"
+FIRST_MESSAGE = (
+    "**Part 1 - Introduction and Interview**\n\n"
+    "Good afternoon. My name is Victoria, and I will be your examiner today. "
+    "Could you tell me your full name, please?"
+)
+
+MOCK_PART3_QUESTION_COUNT = 4
+PRACTICE_PART3_QUESTION_COUNT = 6
+PART3_MAX_QUESTION_COUNT = 6
+LONG_ANSWER_WORD_THRESHOLD = 45
+
+PART1_GENERAL_FOLLOWUPS = [
+    "What do you usually do during a typical weekday?",
+    "What part of your daily routine do you enjoy most?",
+]
+
+
+def get_secret(name: str, default: str | None = None) -> str | None:
+    return os.getenv(name) or os.getenv(f"STREAMLIT_{name}") or default
+
+
+API_KEY = get_secret("API_KEY")
+BASE_URL = get_secret("BASE_URL", "https://api.gptsapi.net/v1")
+MODEL = get_secret("MODEL", "gpt-5.4-mini")
+TRANSCRIPTION_MODEL = get_secret("TRANSCRIPTION_MODEL", "whisper-1")
+
+
+def get_client():
+    if not API_KEY:
+        raise RuntimeError("Missing API_KEY environment variable.")
+    from openai import OpenAI
+
+    return OpenAI(api_key=API_KEY, base_url=BASE_URL)
+
+
+def call_model(messages: list[dict[str, str]]) -> str:
+    response = get_client().chat.completions.create(model=MODEL, messages=messages)
+    return response.choices[0].message.content.strip()
+
+
+def clean_none(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if not cleaned or cleaned.upper() == "NONE":
+        return None
+    return cleaned
+
+
+def extract_feedback_field(text: str, label_pattern: str) -> str | None:
+    pattern = rf"{label_pattern}\s*:\s*(.*?)(?=\n[A-Z_ ]+\s*:|\Z)"
+    match = re.search(pattern, text, flags=re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None
+    return clean_none(match.group(1))
+
+
+def normalize_spoken_text_for_similarity(text: str) -> str:
+    text = text.lower()
+    replacements = {
+        "i'm": "i am",
+        "i’m": "i am",
+        "don't": "do not",
+        "don’t": "do not",
+        "can't": "cannot",
+        "can’t": "cannot",
+        "it's": "it is",
+        "it’s": "it is",
+        "that's": "that is",
+        "that’s": "that is",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    text = re.sub(r"[^a-z0-9\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def should_show_upgraded_answer(
+    original_answer: str,
+    upgraded_answer: str | None,
+    correction: str | None,
+    expression_tip: str | None,
+) -> bool:
+    if not upgraded_answer:
+        return False
+    original = normalize_spoken_text_for_similarity(original_answer)
+    upgraded = normalize_spoken_text_for_similarity(upgraded_answer)
+    if not original or not upgraded:
+        return False
+
+    original_words = original.split()
+    upgraded_words = upgraded.split()
+    similarity = SequenceMatcher(None, original, upgraded).ratio()
+    if original == upgraded or similarity >= 0.9:
+        return False
+    if not correction and not expression_tip:
+        if len(upgraded_words) <= len(original_words) + 2 and similarity >= 0.78:
+            return False
+        if len(original_words) <= 5 and upgraded.startswith(original):
+            return False
+    return True
+
+
+def coach_spoken_answer(
+    question: str,
+    answer: str,
+    include_upgrade: bool,
+) -> tuple[str | None, str | None, str | None]:
+    spoken_words = re.findall(r"[A-Za-z']+", answer)
+    if not spoken_words:
+        return None, None, None
+
+    answer_length = "LONG" if len(spoken_words) >= LONG_ANSWER_WORD_THRESHOLD else "SHORT"
+    prompt = f"""
+You are Victoria, an IELTS Speaking coach.
+
+Return exactly three labelled lines:
+CORRECTION: NONE
+EXPRESSION_TIP: NONE
+UPGRADED_ANSWER: NONE
+
+Rules:
+- The answer is a speech-to-text transcript. Never correct capitalization,
+  punctuation, spelling, obvious transcript mistakes, or proper-name casing.
+- Correct only genuine spoken grammar, vocabulary choice, sentence structure,
+  coherence, or fluency issues that would be heard in speech.
+- If the answer is already natural and appropriate, return NONE for correction
+  and UPGRADED_ANSWER.
+- Only give an upgraded answer when ENABLE_UPGRADE is YES and the rewritten
+  version is meaningfully more natural or better developed.
+- Preserve the candidate's meaning. Do not invent a new personal story.
+- Keep correction and expression tip to one short sentence each.
+
+ENABLE_UPGRADE: {"YES" if include_upgrade else "NO"}
+ANSWER_LENGTH: {answer_length}
+Question: {question}
+Answer: {answer}
+"""
+    try:
+        result = call_model(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "You give concise IELTS spoken-language feedback. "
+                        "Use the exact labels requested and no extra prose."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ]
+        )
+    except Exception:
+        return None, None, None
+
+    correction = extract_feedback_field(result, "CORRECTION")
+    expression_tip = extract_feedback_field(result, "EXPRESSION_TIP")
+    upgraded_answer = extract_feedback_field(result, "UPGRADED[_ ]ANSWER")
+    if expression_tip and correction and expression_tip.lower() == correction.lower():
+        expression_tip = None
+    if not should_show_upgraded_answer(answer, upgraded_answer, correction, expression_tip):
+        upgraded_answer = None
+    return correction, expression_tip, upgraded_answer
+
+
+def extract_single_question(text: str) -> str | None:
+    cleaned = re.sub(r"^\s*[-*\d.)]+\s*", "", text.strip())
+    candidates = re.findall(r"[^?\n]+\?", cleaned)
+    if not candidates:
+        return None
+    return re.sub(r"\s+", " ", candidates[0]).strip()
+
+
+def fallback_part3_question(session: ExamSession) -> str:
+    asked = {q.lower().strip() for q in session.part3_questions}
+    pool = list(session.cue_card.get("part3", []))
+    for question in pool:
+        if question.lower().strip() not in asked:
+            return question
+    generic = [
+        "Why do people's opinions on this topic often differ?",
+        "What changes might happen in this area in the future?",
+        "Do you think this issue affects young and older people differently?",
+        "What are the advantages and disadvantages of this trend?",
+    ]
+    for question in generic:
+        if question.lower().strip() not in asked:
+            return question
+    return "What is the most important thing people should consider about this issue?"
+
+
+def generate_next_part3_question(session: ExamSession) -> str:
+    latest = session.part3_history[-1] if session.part3_history else None
+    reference_questions = "\n".join(f"- {q}" for q in session.cue_card.get("part3", [])[:8])
+    history = "\n".join(
+        f"Q: {item['question']}\nA: {item['answer']}" for item in session.part3_history[-3:]
+    )
+    prompt = f"""
+You are choosing the next IELTS Speaking Part 3 question.
+
+Part 2 cue card:
+{session.cue_card.get("prompt", "")}
+
+Candidate Part 2 answer summary:
+{" ".join(session.part2_answers[-2:])}
+
+Reference Part 3 question bank:
+{reference_questions}
+
+Recent Part 3 exchange:
+{history or "No Part 3 answer yet."}
+
+Task:
+- Ask exactly ONE Part 3 question.
+- It must be analytical, not personal.
+- If the latest answer gives a concrete detail, visibly connect the next question to it.
+- Do not repeat already asked questions.
+- Return only the question.
+"""
+    try:
+        question = extract_single_question(
+            call_model(
+                [
+                    {
+                        "role": "system",
+                        "content": "You are a concise IELTS examiner. Return one question only.",
+                    },
+                    {"role": "user", "content": prompt},
+                ]
+            )
+        )
+    except Exception:
+        question = None
+    if not question or question.lower() in {q.lower() for q in session.part3_questions}:
+        return fallback_part3_question(session)
+    return question
+
+
+def get_part3_question_count(session: ExamSession) -> int:
+    if session.practice_mode:
+        return min(PRACTICE_PART3_QUESTION_COUNT, PART3_MAX_QUESTION_COUNT)
+    return min(MOCK_PART3_QUESTION_COUNT, PART3_MAX_QUESTION_COUNT)
+
+
+def choose_part1_followups(session: ExamSession, answer: str) -> list[str]:
+    normalized = answer.lower()
+    if re.search(r"\b(student|study|studying|university|college|school)\b", normalized):
+        personal_pool = PART1_STUDY_QUESTIONS
+    elif re.search(r"\b(work|working|job|employed|employee)\b", normalized):
+        personal_pool = PART1_WORK_QUESTIONS
+    else:
+        personal_pool = PART1_GENERAL_FOLLOWUPS
+    personal_questions = random.sample(personal_pool, k=min(2, len(personal_pool)))
+    secondary_questions = list(session.part1_secondary_questions)
+    if secondary_questions:
+        topic_name = session.part1_topic or "another topic"
+        secondary_questions[0] = f"Let's talk about {topic_name}. {secondary_questions[0]}"
+    return personal_questions + secondary_questions
+
+
+def is_clarification_request(answer: str) -> bool:
+    normalized = answer.lower()
+    patterns = [
+        r"\bi don't understand\b",
+        r"\bi do not understand\b",
+        r"\bwhat do you mean\b",
+        r"\bcould you (repeat|rephrase|explain)\b",
+        r"\bcan you (repeat|rephrase|explain)\b",
+        r"\bplease (repeat|rephrase|explain)\b",
+    ]
+    return any(re.search(pattern, normalized) for pattern in patterns)
+
+
+def rephrase_question(question: str) -> str:
+    fallback = f"No problem. Let me ask it more simply: {question.strip()}"
+    try:
+        simplified = extract_single_question(
+            call_model(
+                [
+                    {
+                        "role": "system",
+                        "content": "Rephrase the IELTS question in simpler natural English.",
+                    },
+                    {"role": "user", "content": question},
+                ]
+            )
+        )
+    except Exception:
+        return fallback
+    return f"No problem. Let me ask it more simply: {simplified}" if simplified else fallback
+
+
+def build_reply(
+    correction: str | None,
+    expression_tip: str | None,
+    upgraded_answer: str | None,
+    next_content: str,
+) -> str:
+    sections = []
+    if correction:
+        sections.append(f"**Quick correction:** {correction}")
+    if expression_tip:
+        sections.append(f"**Better expression:** {expression_tip}")
+    if upgraded_answer:
+        sections.append(f"**A natural version of your answer:**\n\n> {upgraded_answer}")
+    sections.append(next_content)
+    return "\n\n".join(sections)
+
+
+def start_session(
+    practice_mode: bool = True,
+    answer_expansion_mode: bool = True,
+    voice_playback_enabled: bool = True,
+) -> ExamSession:
+    selected_topic = random.choice(PART1_SECONDARY_TOPICS)
+    session = ExamSession(
+        session_id=str(uuid.uuid4()),
+        messages=[ChatMessage(role="assistant", content=FIRST_MESSAGE, phase="identity")],
+        current_question=FIRST_MESSAGE,
+        practice_mode=practice_mode,
+        answer_expansion_mode=answer_expansion_mode,
+        voice_playback_enabled=voice_playback_enabled,
+        part1_topic=selected_topic["name"],
+        part1_secondary_questions=random.sample(
+            selected_topic["questions"],
+            k=min(3, len(selected_topic["questions"])),
+        ),
+        part3_target_count=PRACTICE_PART3_QUESTION_COUNT if practice_mode else MOCK_PART3_QUESTION_COUNT,
+        cue_card=random.choice(EXTRA_CUE_CARDS),
+    )
+    return session
+
+
+def save_answer_stats(
+    session: ExamSession,
+    answer: str,
+    source: str,
+    duration: float | None,
+    phase: str,
+) -> None:
+    word_count = len(re.findall(r"[A-Za-z']+", answer))
+    words_per_minute = None
+    if duration and duration >= 2:
+        words_per_minute = round(word_count / (duration / 60), 1)
+    session.answer_stats.append(
+        AnswerStats(
+            phase=phase,
+            source=source,
+            duration=duration,
+            word_count=word_count,
+            words_per_minute=words_per_minute,
+        )
+    )
+    session.candidate_answers.append(
+        CandidateAnswer(
+            phase=phase,
+            question=session.current_question,
+            answer=answer,
+            source=source,
+            duration=duration,
+        )
+    )
+
+
+def process_answer(
+    session: ExamSession,
+    answer: str,
+    source: str = "text",
+    duration: float | None = None,
+) -> tuple[ExamSession, ChatMessage, str, bool]:
+    phase = session.phase
+    previous_question = session.current_question
+    save_answer_stats(session, answer, source, duration, phase)
+    session.messages.append(ChatMessage(role="user", content=answer, phase=phase))
+
+    correction = None
+    expression_tip = None
+    upgraded_answer = None
+    include_upgrade = (
+        session.practice_mode
+        and session.answer_expansion_mode
+        and phase in {"part1", "part2_followup", "part3"}
+    )
+    if session.practice_mode and phase != "identity":
+        correction, expression_tip, upgraded_answer = coach_spoken_answer(
+            previous_question,
+            answer,
+            include_upgrade,
+        )
+
+    start_prep_timer = False
+    if phase == "identity":
+        session.phase = "part1"
+        session.part1_index = 0
+        next_content = PART1_FIRST_QUESTION
+
+    elif phase == "part1":
+        if not session.part1_queue:
+            session.part1_queue = choose_part1_followups(session, answer)
+        index = session.part1_index
+        if index < len(session.part1_queue):
+            next_content = session.part1_queue[index]
+            session.part1_index += 1
+        else:
+            session.phase = "part2_long"
+            session.part2_words = 0
+            session.part2_duration = 0.0
+            session.part2_audio_used = False
+            session.part2_extension_used = False
+            session.part2_answers = []
+            session.part3_questions = []
+            session.part3_history = []
+            start_prep_timer = True
+            card = session.cue_card
+            next_content = (
+                "**Part 2 - Long Turn**\n\n"
+                f"{card['prompt']}\n\n"
+                "You have one minute to prepare. Then speak for one to two minutes."
+            )
+
+    elif phase == "part2_long":
+        session.part2_answers.append(answer)
+        session.part2_words += len(re.findall(r"[A-Za-z']+", answer))
+        if duration:
+            session.part2_duration += duration
+            session.part2_audio_used = True
+        needs_more = (
+            session.part2_duration < 50
+            if session.part2_audio_used
+            else session.part2_words < 80
+        )
+        if needs_more and not session.part2_extension_used:
+            session.part2_extension_used = True
+            next_content = "Please continue - you still have time. Add more detail or give an example."
+        else:
+            session.phase = "part2_followup"
+            next_content = session.cue_card["follow_up"]
+
+    elif phase == "part2_followup":
+        session.part2_answers.append(answer)
+        session.part3_target_count = get_part3_question_count(session)
+        session.part3_questions = []
+        session.part3_history = []
+        first_part3 = generate_next_part3_question(session)
+        session.part3_questions.append(first_part3)
+        session.phase = "part3"
+        session.part3_index = 0
+        next_content = f"**Part 3 - Discussion**\n\n{first_part3}"
+
+    elif phase == "part3":
+        current_question = session.part3_questions[-1] if session.part3_questions else previous_question
+        if is_clarification_request(answer):
+            next_content = rephrase_question(current_question)
+        else:
+            session.part3_history.append({"question": current_question, "answer": answer})
+            session.part3_index = len(session.part3_history)
+            if session.part3_index < session.part3_target_count:
+                next_question = generate_next_part3_question(session)
+                session.part3_questions.append(next_question)
+                next_content = next_question
+            else:
+                session.phase = "complete"
+                session.test_active = False
+                next_content = (
+                    "Thank you. That is the end of the speaking test. "
+                    "Tap **Get Score** to view your report."
+                )
+    else:
+        next_content = "The test is complete. Tap **Get Score**."
+
+    if session.phase == "part2_long" and next_content.startswith("Please continue"):
+        session.current_question = session.cue_card["prompt"]
+    elif session.phase == "part3" and session.part3_questions:
+        session.current_question = session.part3_questions[-1]
+    else:
+        session.current_question = next_content
+
+    reply = build_reply(correction, expression_tip, upgraded_answer, next_content)
+    assistant_message = ChatMessage(role="assistant", content=reply, phase=session.phase)
+    session.messages.append(assistant_message)
+    return session, assistant_message, next_content, start_prep_timer
+
+
+def audio_filename_from_mime(mime_type: str) -> str:
+    if "wav" in mime_type:
+        return "ielts_answer.wav"
+    if "mp4" in mime_type or "m4a" in mime_type:
+        return "ielts_answer.m4a"
+    if "mpeg" in mime_type or "mp3" in mime_type:
+        return "ielts_answer.mp3"
+    return "ielts_answer.webm"
+
+
+def transcribe_audio(audio_bytes: bytes, mime_type: str = "audio/wav") -> str:
+    audio_file = io.BytesIO(audio_bytes)
+    audio_file.name = audio_filename_from_mime(mime_type)
+    transcription = get_client().audio.transcriptions.create(
+        model=TRANSCRIPTION_MODEL,
+        file=audio_file,
+        language="en",
+    )
+    text = getattr(transcription, "text", None)
+    return text.strip() if text else ""
+
+
+def synthesize_speech(text: str) -> bytes:
+    from gtts import gTTS
+
+    clean_text = text.replace("*", "").replace("#", "").replace("- ", "")
+    audio_buffer = io.BytesIO()
+    gTTS(text=clean_text, lang="en", tld="co.uk").write_to_fp(audio_buffer)
+    return audio_buffer.getvalue()
+
+
+def export_candidate_answer_log(session: ExamSession) -> str:
+    lines = []
+    for index, item in enumerate(session.candidate_answers, start=1):
+        timing = f", duration={item.duration:.1f}s" if item.duration else ""
+        lines.append(
+            f"{index}. [{item.phase}] Q: {item.question}\n"
+            f"   A ({item.source}{timing}): {item.answer}"
+        )
+    return "\n".join(lines) or "No candidate answers recorded."
+
+
+def build_report(session: ExamSession) -> str:
+    prompt = f"""
+Create a clear IELTS Speaking practice report based only on the candidate answers below.
+
+Include:
+1. Estimated overall band score.
+2. Separate comments for Fluency and Coherence, Lexical Resource, and Grammar.
+3. Three recurring spoken-language problems.
+4. Three corrected examples based on the candidate's meaning.
+5. Exactly three next-session practice tasks.
+
+Do not include a generic seven-day plan.
+Do not assess pronunciation unless audio timing alone supports a cautious observation.
+
+Raw answer log:
+{export_candidate_answer_log(session)}
+"""
+    try:
+        return call_model(
+            [
+                {
+                    "role": "system",
+                    "content": "You are a strict but helpful IELTS Speaking examiner.",
+                },
+                {"role": "user", "content": prompt},
+            ]
+        )
+    except Exception as error:
+        return f"Report generation failed: {error}"
