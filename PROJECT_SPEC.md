@@ -187,12 +187,15 @@ The current input interface uses a custom frontend voice composer instead of
 Streamlit's native `st.audio_input`:
 
 - Voice mode by default
-- browser recording through MediaRecorder
-- hold-to-speak style interaction
+- tap-to-record / tap-to-send interaction for safer mobile use
+- frontend WAV encoding from browser microphone audio instead of relying on
+  browser-specific WebM/MP4 containers
+- compact 16kHz mono audio upload for transcription
 - automatic audio upload to Python after recording stops
 - Whisper-compatible transcription in Python
 - optional transcript review before submission
 - Type mode with a small text input
+- iOS-style fixed bottom composer on mobile/desktop
 
 This avoids the native Streamlit recorder problem where the previous recording
 can remain visible after the next question appears.
