@@ -1047,6 +1047,11 @@ if "messages" not in st.session_state:
     st.session_state.text_input_key = 0
     st.session_state.last_audio_signature = None
     st.session_state.last_composer_event_id = None
+    st.session_state.composer_reset_token = 0
+    st.session_state.pending_spoken_text = None
+
+st.session_state.setdefault("composer_reset_token", 0)
+st.session_state.setdefault("pending_spoken_text", None)
 
 
 # --- SIDEBAR TOOLS ---
@@ -1241,6 +1246,13 @@ for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
+pending_spoken_text = st.session_state.pop("pending_spoken_text", None)
+if pending_spoken_text and st.session_state.get("voice_playback_enabled", True):
+    try:
+        speak_text(pending_spoken_text)
+    except Exception:
+        st.warning("The text reply worked, but audio could not be generated this time.")
+
 
 # --- INPUT LOGIC ---
 if st.session_state.test_active:
@@ -1248,7 +1260,11 @@ if st.session_state.test_active:
     input_source = "text"
     answer_duration = None
 
-    composer_value = voice_composer(key="voice_composer", default=None)
+    composer_value = voice_composer(
+        reset_token=st.session_state.composer_reset_token,
+        key="voice_composer",
+        default=None,
+    )
     if (
         isinstance(composer_value, dict)
         and composer_value.get("id")
@@ -1343,9 +1359,8 @@ if st.session_state.test_active:
                             st.session_state.timer_label,
                         )
                 if st.session_state.voice_playback_enabled:
-                    try:
-                        speak_text(ai_reply if st.session_state.speak_full_reply else spoken_text)
-                    except Exception:
-                        st.warning(
-                            "The text reply worked, but audio could not be generated this time."
-                        )
+                    st.session_state.pending_spoken_text = (
+                        ai_reply if st.session_state.speak_full_reply else spoken_text
+                    )
+                st.session_state.composer_reset_token += 1
+                st.rerun()
