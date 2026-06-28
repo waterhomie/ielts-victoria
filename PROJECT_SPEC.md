@@ -132,6 +132,10 @@ Next IELTS question
 
 The feedback must not interrupt the test flow.
 
+For long answers, practice mode may give up to three high-impact corrections.
+For very short answers, answer upgrades should not invent new motivations, personal
+history, or future plans that the learner did not express.
+
 ## 8. Part 3 question logic
 
 Part 3 should be based on:
@@ -148,6 +152,10 @@ Current behavior:
 - Generate each Part 3 question dynamically after reading the previous Part 3 answer.
 - Use the learner’s answer depth to decide whether to ask for clarification, comparison, cause, consequence, social impact, or future change.
 - Fall back to reference bank questions if dynamic generation fails.
+- Avoid repeating the same discussion angle under different wording, such as asking
+  benefits/drawbacks immediately after advantages/disadvantages.
+- If the candidate says they do not understand a Part 3 question, rephrase the
+  current question instead of counting it and moving to the next one.
 
 ## 9. Question bank
 
@@ -199,7 +207,9 @@ The final report should include:
 3. Recurring spoken-language problems
 4. Natural corrected examples
 5. Better-expression examples
-6. Focused improvement plan
+6. Three focused next-practice tasks based on the transcript
+
+A generic seven-day plan should not be the default report output.
 
 Pronunciation should not be assessed confidently unless acoustic analysis is implemented.
 
