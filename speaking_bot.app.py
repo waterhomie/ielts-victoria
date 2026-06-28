@@ -1,4 +1,5 @@
 import base64
+from difflib import SequenceMatcher
 import io
 from pathlib import Path
 import random
@@ -188,6 +189,9 @@ Expression-tip rules:
 Personalized answer-upgrade rules:
 - The user message will contain ENABLE_UPGRADE: YES or NO.
 - If it is NO, use UPGRADED_ANSWER: NONE.
+- If the candidate's answer is already natural, clear, and appropriate for the
+  question, use UPGRADED_ANSWER: NONE. Do not rewrite just to change
+  capitalization, punctuation, contractions, or wording that is already natural.
 - If it is YES, produce a natural first-person answer of two or three sentences,
   no more than 60 words.
 - Preserve the candidate's own central idea, emotion, and personal viewpoint.
@@ -208,7 +212,7 @@ Question: "Do you enjoy your studies?"
 Answer: "yes i do"
 CORRECTION: NONE
 EXPRESSION_TIP: NONE
-UPGRADED_ANSWER: Yes, I do. I enjoy my studies.
+UPGRADED_ANSWER: NONE
 
 Example 2:
 ENABLE_UPGRADE: YES
@@ -232,10 +236,10 @@ Example 4:
 ENABLE_UPGRADE: YES
 ANSWER_LENGTH: SHORT
 Question: "What subject do you study?"
-Answer: "achitecture"
+Answer: "I study architecture."
 CORRECTION: NONE
 EXPRESSION_TIP: NONE
-UPGRADED_ANSWER: I study architecture.
+UPGRADED_ANSWER: NONE
 
 Example 5:
 ENABLE_UPGRADE: YES
@@ -283,6 +287,40 @@ st.markdown(
     """
     <style>
     .stChatFloatingInputContainer {padding-bottom: 20px;}
+    .block-container {
+        padding-bottom: 118px;
+    }
+    div[data-testid="stCustomComponentV1"] {
+        height: 82px !important;
+    }
+    div[data-testid="stCustomComponentV1"] iframe,
+    iframe[title*="voice_composer"] {
+        position: fixed !important;
+        left: 50% !important;
+        bottom: max(12px, env(safe-area-inset-bottom)) !important;
+        width: min(900px, calc(100vw - 28px)) !important;
+        height: 82px !important;
+        transform: translateX(-50%) !important;
+        z-index: 100000 !important;
+        border: 0 !important;
+        border-radius: 34px !important;
+        background: transparent !important;
+    }
+    @media (max-width: 640px) {
+        .block-container {
+            padding-left: 1.1rem;
+            padding-right: 1.1rem;
+            padding-bottom: 108px;
+        }
+        h1 {
+            font-size: clamp(2.35rem, 12vw, 4.2rem) !important;
+            line-height: 1.06 !important;
+            letter-spacing: -0.04em !important;
+        }
+        [data-testid="stSidebar"] {
+            display: none;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -849,6 +887,53 @@ def choose_part1_followups(answer):
     return personal_questions + secondary_questions
 
 
+def normalize_spoken_text_for_similarity(text):
+    text = text.lower()
+    replacements = {
+        "i'm": "i am",
+        "i’m": "i am",
+        "don't": "do not",
+        "don’t": "do not",
+        "can't": "cannot",
+        "can’t": "cannot",
+        "it's": "it is",
+        "it’s": "it is",
+        "that's": "that is",
+        "that’s": "that is",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    text = re.sub(r"[^a-z0-9\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def should_show_upgraded_answer(original_answer, upgraded_answer, correction, expression_tip):
+    if not upgraded_answer:
+        return False
+
+    original = normalize_spoken_text_for_similarity(original_answer)
+    upgraded = normalize_spoken_text_for_similarity(upgraded_answer)
+    if not original or not upgraded:
+        return False
+
+    original_words = original.split()
+    upgraded_words = upgraded.split()
+    similarity = SequenceMatcher(None, original, upgraded).ratio()
+
+    if original == upgraded:
+        return False
+    if similarity >= 0.9:
+        return False
+    if not correction and not expression_tip:
+        if len(upgraded_words) <= len(original_words) + 2 and similarity >= 0.78:
+            return False
+        if len(original_words) <= 5 and upgraded.startswith(original):
+            return False
+
+    return True
+
+
 def build_reply(correction, expression_tip, upgraded_answer, next_content):
     sections = []
     if correction:
@@ -878,6 +963,13 @@ def process_candidate_answer(answer, previous_question, answer_duration=None):
             answer,
             include_upgrade,
         )
+        if not should_show_upgraded_answer(
+            answer,
+            upgraded_answer,
+            correction,
+            expression_tip,
+        ):
+            upgraded_answer = None
 
     start_prep_timer = False
 
