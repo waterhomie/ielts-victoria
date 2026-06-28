@@ -6,8 +6,8 @@ venv/
 node_modules/
 dist/
 .vite/
+tmp/
 
 .env
 .env.*
 !.env.example
-
