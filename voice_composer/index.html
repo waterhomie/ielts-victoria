@@ -158,7 +158,9 @@
   </div>
 
   <script>
-    const Streamlit = window.Streamlit || {
+    const Streamlit = window.Streamlit
+      || (window.streamlitComponentLib && window.streamlitComponentLib.Streamlit)
+      || {
       setComponentReady: () => window.parent.postMessage({
         isStreamlitMessage: true,
         type: "streamlit:componentReady",
@@ -173,8 +175,10 @@
         isStreamlitMessage: true,
         type: "streamlit:setComponentValue",
         value,
+        dataType: "json",
       }, "*"),
     };
+    const STREAMLIT_RENDER_EVENT = Streamlit.RENDER_EVENT || "streamlit:render";
 
     const modeButton = document.getElementById("modeButton");
     const voiceMain = document.getElementById("voiceMain");
@@ -191,6 +195,8 @@
     let startTime = 0;
     let timerId = null;
     let recording = false;
+    let activePointerId = null;
+    let lastResetToken = null;
 
     function setHeight() {
       Streamlit.setFrameHeight(document.body.scrollHeight + 2);
@@ -220,6 +226,27 @@
     function updateTimer() {
       const elapsed = Math.max(0, (Date.now() - startTime) / 1000);
       statusEl.textContent = `${elapsed.toFixed(1)}s`;
+    }
+
+    function resetComposer() {
+      if (recording && mediaRecorder && mediaRecorder.state !== "inactive") {
+        try {
+          mediaRecorder.stop();
+        } catch (_) {
+          // The recorder may already have stopped during a rerender.
+        }
+      }
+      recording = false;
+      activePointerId = null;
+      chunks = [];
+      clearInterval(timerId);
+      timerId = null;
+      holdButton.classList.remove("recording");
+      holdButton.textContent = "Hold to speak";
+      statusEl.textContent = "ready";
+      textInput.value = "";
+      sendButton.disabled = true;
+      setHeight();
     }
 
     function getMimeType() {
@@ -277,6 +304,7 @@
           const audioBase64 = await blobToBase64(blob);
           statusEl.textContent = "sending";
           holdButton.textContent = "Hold to speak";
+          holdButton.classList.remove("recording");
           Streamlit.setComponentValue({
             id: eventId(),
             kind: "audio",
@@ -285,6 +313,7 @@
             duration,
             review: reviewCheckbox.checked,
           });
+          chunks = [];
           setTimeout(() => {
             statusEl.textContent = "ready";
           }, 500);
@@ -305,6 +334,7 @@
     function stopRecording() {
       if (!recording || !mediaRecorder) return;
       recording = false;
+      activePointerId = null;
       holdButton.classList.remove("recording");
       clearInterval(timerId);
       timerId = null;
@@ -325,23 +355,51 @@
       textInput.focus();
     }
 
+    function stopRecordingFromPointer(event) {
+      if (activePointerId !== null && event.pointerId !== activePointerId) return;
+      event.preventDefault();
+      if (holdButton.releasePointerCapture && activePointerId !== null) {
+        try {
+          holdButton.releasePointerCapture(activePointerId);
+        } catch (_) {
+          // Pointer capture may already be released.
+        }
+      }
+      stopRecording();
+    }
+
     modeButton.addEventListener("click", () => {
       setMode(mode === "voice" ? "text" : "voice");
     });
 
     holdButton.addEventListener("pointerdown", (event) => {
       event.preventDefault();
+      activePointerId = event.pointerId;
+      if (holdButton.setPointerCapture) {
+        try {
+          holdButton.setPointerCapture(activePointerId);
+        } catch (_) {
+          // Older browsers may not support pointer capture inside iframes.
+        }
+      }
       startRecording();
     });
-    holdButton.addEventListener("pointerup", (event) => {
-      event.preventDefault();
-      stopRecording();
+    holdButton.addEventListener("pointerup", stopRecordingFromPointer);
+    holdButton.addEventListener("pointercancel", stopRecordingFromPointer);
+    holdButton.addEventListener("lostpointercapture", () => {
+      if (recording) stopRecording();
     });
-    holdButton.addEventListener("pointerleave", () => {
-      stopRecording();
+    holdButton.addEventListener("keydown", (event) => {
+      if ((event.key === " " || event.key === "Enter") && !recording) {
+        event.preventDefault();
+        startRecording();
+      }
     });
-    holdButton.addEventListener("touchcancel", () => {
-      stopRecording();
+    holdButton.addEventListener("keyup", (event) => {
+      if (event.key === " " || event.key === "Enter") {
+        event.preventDefault();
+        stopRecording();
+      }
     });
 
     textInput.addEventListener("input", () => {
@@ -354,6 +412,16 @@
       }
     });
     sendButton.addEventListener("click", sendText);
+
+    window.addEventListener(STREAMLIT_RENDER_EVENT, (event) => {
+      const args = event.detail ? event.detail.args || {} : {};
+      if (args.reset_token !== undefined && args.reset_token !== lastResetToken) {
+        lastResetToken = args.reset_token;
+        resetComposer();
+      } else {
+        setHeight();
+      }
+    });
 
     Streamlit.setComponentReady();
     setMode("voice");
