@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://unpkg.com/streamlit-component-lib@2.0.0/dist/index.js"></script>
+  <style>
+    :root {
+      --accent: #ff4b4b;
+      --border: #e6e8ef;
+      --text: #262730;
+      --muted: #7b8190;
+      --bg: #ffffff;
+      --soft: #f6f7fb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .composer {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg);
+      box-shadow: 0 8px 24px rgba(38, 39, 48, 0.06);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+    }
+
+    .mode {
+      border: 0;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      cursor: pointer;
+      min-width: 58px;
+      height: 42px;
+      font-size: 17px;
+      transition: all 0.15s ease;
+    }
+
+    .mode:hover {
+      color: var(--text);
+      background: #eceef5;
+    }
+
+    .voice-main,
+    .text-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hold {
+      flex: 1;
+      border: 0;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--text);
+      height: 44px;
+      font-size: 16px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.12s ease;
+    }
+
+    .hold.recording {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 0 0 6px rgba(255, 75, 75, 0.14);
+    }
+
+    .status {
+      min-width: 72px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .text-input {
+      flex: 1;
+      border: 0;
+      outline: none;
+      height: 44px;
+      padding: 0 12px;
+      font-size: 16px;
+      background: transparent;
+      color: var(--text);
+    }
+
+    .send {
+      border: 0;
+      border-radius: 999px;
+      background: var(--accent);
+      color: white;
+      cursor: pointer;
+      min-width: 58px;
+      height: 42px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .send:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .review {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      padding-right: 4px;
+      white-space: nowrap;
+    }
+
+    .review input {
+      accent-color: var(--accent);
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="composer">
+    <button class="mode" id="modeButton" title="Switch text / voice">Text</button>
+
+    <div class="voice-main" id="voiceMain">
+      <button class="hold" id="holdButton">Hold to speak</button>
+      <span class="status" id="status">ready</span>
+      <label class="review" title="Review transcript before sending">
+        <input type="checkbox" id="reviewCheckbox" />
+        review
+      </label>
+    </div>
+
+    <div class="text-main hidden" id="textMain">
+      <input class="text-input" id="textInput" placeholder="Type your answer..." />
+      <button class="send" id="sendButton" disabled>Send</button>
+    </div>
+  </div>
+
+  <script>
+    const Streamlit = window.Streamlit || {
+      setComponentReady: () => window.parent.postMessage({
+        isStreamlitMessage: true,
+        type: "streamlit:componentReady",
+        apiVersion: 1,
+      }, "*"),
+      setFrameHeight: (height) => window.parent.postMessage({
+        isStreamlitMessage: true,
+        type: "streamlit:setFrameHeight",
+        height,
+      }, "*"),
+      setComponentValue: (value) => window.parent.postMessage({
+        isStreamlitMessage: true,
+        type: "streamlit:setComponentValue",
+        value,
+      }, "*"),
+    };
+
+    const modeButton = document.getElementById("modeButton");
+    const voiceMain = document.getElementById("voiceMain");
+    const textMain = document.getElementById("textMain");
+    const holdButton = document.getElementById("holdButton");
+    const statusEl = document.getElementById("status");
+    const reviewCheckbox = document.getElementById("reviewCheckbox");
+    const textInput = document.getElementById("textInput");
+    const sendButton = document.getElementById("sendButton");
+
+    let mode = "voice";
+    let mediaRecorder = null;
+    let chunks = [];
+    let startTime = 0;
+    let timerId = null;
+    let recording = false;
+
+    function setHeight() {
+      Streamlit.setFrameHeight(document.body.scrollHeight + 2);
+    }
+
+    function eventId() {
+      return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+
+    function setMode(nextMode) {
+      mode = nextMode;
+      if (mode === "voice") {
+        voiceMain.classList.remove("hidden");
+        textMain.classList.add("hidden");
+        modeButton.textContent = "Text";
+        modeButton.title = "Switch to text";
+      } else {
+        voiceMain.classList.add("hidden");
+        textMain.classList.remove("hidden");
+        modeButton.textContent = "Voice";
+        modeButton.title = "Switch to voice";
+        textInput.focus();
+      }
+      setHeight();
+    }
+
+    function updateTimer() {
+      const elapsed = Math.max(0, (Date.now() - startTime) / 1000);
+      statusEl.textContent = `${elapsed.toFixed(1)}s`;
+    }
+
+    function getMimeType() {
+      const candidates = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+      ];
+      if (!window.MediaRecorder) return "";
+      return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
+    }
+
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = String(reader.result || "");
+          resolve(result.split(",")[1] || "");
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function startRecording() {
+      if (recording) return;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        statusEl.textContent = "no mic";
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mimeType = getMimeType();
+        mediaRecorder = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream);
+        chunks = [];
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) chunks.push(event.data);
+        };
+        mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach((track) => track.stop());
+          const duration = Math.max(0.1, (Date.now() - startTime) / 1000);
+          if (duration < 0.5) {
+            statusEl.textContent = "too short";
+            holdButton.textContent = "Hold to speak";
+            setTimeout(() => {
+              statusEl.textContent = "ready";
+            }, 800);
+            return;
+          }
+          const actualMimeType = mediaRecorder.mimeType || mimeType || "audio/webm";
+          const blob = new Blob(chunks, { type: actualMimeType });
+          const audioBase64 = await blobToBase64(blob);
+          statusEl.textContent = "sending";
+          holdButton.textContent = "Hold to speak";
+          Streamlit.setComponentValue({
+            id: eventId(),
+            kind: "audio",
+            audioBase64,
+            mimeType: actualMimeType,
+            duration,
+            review: reviewCheckbox.checked,
+          });
+          setTimeout(() => {
+            statusEl.textContent = "ready";
+          }, 500);
+        };
+
+        mediaRecorder.start();
+        recording = true;
+        startTime = Date.now();
+        holdButton.classList.add("recording");
+        holdButton.textContent = "Release to send";
+        statusEl.textContent = "0.0s";
+        timerId = setInterval(updateTimer, 100);
+      } catch (error) {
+        statusEl.textContent = "blocked";
+      }
+    }
+
+    function stopRecording() {
+      if (!recording || !mediaRecorder) return;
+      recording = false;
+      holdButton.classList.remove("recording");
+      clearInterval(timerId);
+      timerId = null;
+      statusEl.textContent = "processing";
+      mediaRecorder.stop();
+    }
+
+    function sendText() {
+      const text = textInput.value.trim();
+      if (!text) return;
+      Streamlit.setComponentValue({
+        id: eventId(),
+        kind: "text",
+        text,
+      });
+      textInput.value = "";
+      sendButton.disabled = true;
+      textInput.focus();
+    }
+
+    modeButton.addEventListener("click", () => {
+      setMode(mode === "voice" ? "text" : "voice");
+    });
+
+    holdButton.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      startRecording();
+    });
+    holdButton.addEventListener("pointerup", (event) => {
+      event.preventDefault();
+      stopRecording();
+    });
+    holdButton.addEventListener("pointerleave", () => {
+      stopRecording();
+    });
+    holdButton.addEventListener("touchcancel", () => {
+      stopRecording();
+    });
+
+    textInput.addEventListener("input", () => {
+      sendButton.disabled = !textInput.value.trim();
+    });
+    textInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendText();
+      }
+    });
+    sendButton.addEventListener("click", sendText);
+
+    Streamlit.setComponentReady();
+    setMode("voice");
+    setHeight();
+    window.addEventListener("resize", setHeight);
+  </script>
+</body>
+</html>
