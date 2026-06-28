@@ -1,5 +1,6 @@
-import hashlib
+import base64
 import io
+from pathlib import Path
 import random
 import re
 import time
@@ -50,6 +51,11 @@ if not API_KEY:
     st.stop()
 
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+VOICE_COMPOSER_PATH = Path(__file__).parent / "voice_composer"
+voice_composer = components.declare_component(
+    "voice_composer",
+    path=str(VOICE_COMPOSER_PATH),
+)
 
 
 # --- TEST CONTENT ---
@@ -620,9 +626,19 @@ def get_wav_duration(audio_bytes):
         return None
 
 
-def transcribe_audio(audio_bytes):
+def audio_filename_from_mime(mime_type):
+    if "mp4" in mime_type:
+        return "ielts_answer.mp4"
+    if "mpeg" in mime_type or "mp3" in mime_type:
+        return "ielts_answer.mp3"
+    if "wav" in mime_type:
+        return "ielts_answer.wav"
+    return "ielts_answer.webm"
+
+
+def transcribe_audio(audio_bytes, filename="ielts_answer.wav"):
     audio_file = io.BytesIO(audio_bytes)
-    audio_file.name = "ielts_answer.wav"
+    audio_file.name = filename
     transcription = client.audio.transcriptions.create(
         model=TRANSCRIPTION_MODEL,
         file=audio_file,
@@ -641,6 +657,12 @@ def transcribe_recording(recorded_audio):
     transcript = transcribe_audio(audio_bytes)
     duration = get_wav_duration(audio_bytes)
     return transcript, duration
+
+
+def transcribe_custom_audio(audio_base64, mime_type):
+    audio_bytes = base64.b64decode(audio_base64)
+    filename = audio_filename_from_mime(mime_type or "audio/webm")
+    return transcribe_audio(audio_bytes, filename=filename)
 
 
 def save_answer_stats(text, source, duration, phase):
@@ -1024,6 +1046,7 @@ if "messages" not in st.session_state:
     st.session_state.audio_input_key = 0
     st.session_state.text_input_key = 0
     st.session_state.last_audio_signature = None
+    st.session_state.last_composer_event_id = None
 
 
 # --- SIDEBAR TOOLS ---
@@ -1225,113 +1248,58 @@ if st.session_state.test_active:
     input_source = "text"
     answer_duration = None
 
-    with st.container():
-        input_mode = st.radio(
-            "Answer mode",
-            ["Voice", "Type"],
-            horizontal=True,
-            label_visibility="collapsed",
+    composer_value = voice_composer(key="voice_composer", default=None)
+    if (
+        isinstance(composer_value, dict)
+        and composer_value.get("id")
+        and composer_value.get("id") != st.session_state.get("last_composer_event_id")
+    ):
+        st.session_state.last_composer_event_id = composer_value["id"]
+        if composer_value.get("kind") == "text":
+            user_input = (composer_value.get("text") or "").strip()
+            input_source = "text"
+            answer_duration = None
+        elif composer_value.get("kind") == "audio":
+            answer_duration = float(composer_value.get("duration") or 0)
+            with st.spinner("Transcribing your recording..."):
+                try:
+                    transcript = transcribe_custom_audio(
+                        composer_value.get("audioBase64", ""),
+                        composer_value.get("mimeType", "audio/webm"),
+                    )
+                    if composer_value.get("review"):
+                        st.session_state.pending_transcript = transcript
+                        st.session_state.pending_audio_duration = answer_duration
+                    else:
+                        user_input = transcript
+                        input_source = "audio"
+                        st.session_state.pop("pending_transcript", None)
+                        st.session_state.pop("pending_audio_duration", None)
+                except Exception as error:
+                    user_input = None
+                    st.error(
+                        "Audio transcription is temporarily unavailable. "
+                        f"You can type your answer with the keyboard button. Details: {error}"
+                    )
+
+    if st.session_state.get("pending_transcript"):
+        edited_transcript = st.text_area(
+            "Review transcript",
+            value=st.session_state.pending_transcript,
+            key="custom_transcript_editor",
+            height=80,
         )
-
-        if input_mode == "Type":
-            text_key = st.session_state.text_input_key
-            typed_col, submit_col = st.columns([5, 1])
-            with typed_col:
-                typed_answer = st.text_input(
-                    "Type your answer",
-                    placeholder="Type your answer...",
-                    key=f"typed_answer_{text_key}",
-                    label_visibility="collapsed",
-                )
-            with submit_col:
-                submit_typed_answer = st.button(
-                    "Send",
-                    disabled=not typed_answer.strip(),
-                    key=f"submit_text_{text_key}",
-                    type="primary",
-                    use_container_width=True,
-                )
-            if submit_typed_answer:
-                user_input = typed_answer.strip()
-                input_source = "text"
-                answer_duration = None
-                st.session_state.text_input_key += 1
-
-        else:
-            review_before_submit = st.toggle(
-                "Review transcript before sending",
-                value=False,
-                help=(
-                    "Off: after you stop recording, Victoria automatically transcribes "
-                    "and submits your answer. On: you can edit the transcript first."
-                ),
-            )
-
-            recorder_key = st.session_state.audio_input_key
-            recorded_audio = st.audio_input(
-                "Record your answer",
-                key=f"audio_answer_{recorder_key}",
-                label_visibility="collapsed",
-            )
-
-            if recorded_audio is None:
-                st.caption("Stop the recording to send it automatically.")
-            else:
-                audio_bytes = recorded_audio.getvalue()
-                audio_signature = hashlib.sha256(audio_bytes).hexdigest()
-                is_new_recording = (
-                    audio_signature != st.session_state.get("last_audio_signature")
-                )
-
-                if is_new_recording and review_before_submit:
-                    with st.spinner("Transcribing your recording..."):
-                        try:
-                            (
-                                st.session_state.pending_transcript,
-                                st.session_state.pending_audio_duration,
-                            ) = transcribe_recording(recorded_audio)
-                            st.session_state.last_audio_signature = audio_signature
-                        except Exception as error:
-                            st.error(
-                                "Audio transcription is temporarily unavailable. "
-                                f"You can still switch to Type mode. Details: {error}"
-                            )
-
-                elif is_new_recording:
-                    with st.spinner("Transcribing and sending your recording..."):
-                        try:
-                            user_input, answer_duration = transcribe_recording(recorded_audio)
-                            input_source = "audio"
-                            st.session_state.last_audio_signature = audio_signature
-                            st.session_state.audio_input_key += 1
-                            st.session_state.pop("pending_transcript", None)
-                            st.session_state.pop("pending_audio_duration", None)
-                        except Exception as error:
-                            user_input = None
-                            st.error(
-                                "Audio transcription is temporarily unavailable. "
-                                f"You can still switch to Type mode. Details: {error}"
-                            )
-
-            if st.session_state.get("pending_transcript"):
-                edited_transcript = st.text_area(
-                    "Review transcript",
-                    value=st.session_state.pending_transcript,
-                    key=f"transcript_editor_{recorder_key}",
-                    height=80,
-                )
-                if st.button(
-                    "Send reviewed transcript",
-                    key=f"submit_audio_{recorder_key}",
-                    type="primary",
-                    use_container_width=True,
-                ):
-                    user_input = edited_transcript.strip()
-                    input_source = "audio"
-                    answer_duration = st.session_state.get("pending_audio_duration")
-                    st.session_state.audio_input_key += 1
-                    st.session_state.pop("pending_transcript", None)
-                    st.session_state.pop("pending_audio_duration", None)
+        if st.button(
+            "Send reviewed transcript",
+            key="submit_custom_audio",
+            type="primary",
+            use_container_width=True,
+        ):
+            user_input = edited_transcript.strip()
+            input_source = "audio"
+            answer_duration = st.session_state.get("pending_audio_duration")
+            st.session_state.pop("pending_transcript", None)
+            st.session_state.pop("pending_audio_duration", None)
 
     if user_input:
         answer_phase = st.session_state.phase
