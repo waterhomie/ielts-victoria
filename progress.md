@@ -22,6 +22,7 @@ Last updated: 2026-06-28
 - Added semantic expression coaching through `Better expression`.
 - Added natural answer upgrade while preserving the learner’s intended meaning.
 - Added Part 3 adaptive question generation from question bank plus Part 2 answers.
+- Changed Part 3 into a dynamic one-question-at-a-time loop that uses the previous Part 3 answer before generating the next question.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
@@ -69,7 +70,7 @@ It is not yet ready for:
 ## Current risks
 
 - `process_candidate_answer` is still large and should eventually be split into stage-specific handlers.
-- Part 3 questions are generated as a batch before Part 3 starts; a stronger loop would generate each next question after reading the previous answer.
+- Part 3 dynamic generation now depends on model quality; fallback bank questions are used when generation fails.
 - There is no persistent learner profile, so the app does not remember weaknesses across sessions.
 - There is no database or user account system.
 - TTS depends on `gTTS`, which may be slow or unavailable sometimes.
@@ -79,13 +80,7 @@ It is not yet ready for:
 
 ## High-priority backlog
 
-1. Dynamic Part 3 loop
-   - Generate one Part 3 question at a time.
-   - Use the previous Part 3 answer to decide the next question.
-   - Keep a hard maximum question count.
-   - Fall back to bank questions if model generation fails.
-
-2. Learner profile / session learning summary
+1. Learner profile / session learning summary
    - Summarize recurring weaknesses after each practice session.
    - Save:
      - common grammar issues
@@ -94,7 +89,7 @@ It is not yet ready for:
      - Part 3 reasoning problems
      - next-session focus
 
-3. Refactor state machine
+2. Refactor state machine
    - Split `process_candidate_answer` into:
      - `handle_identity`
      - `handle_part1`
@@ -102,14 +97,14 @@ It is not yet ready for:
      - `handle_part2_followup`
      - `handle_part3`
 
-4. README / portfolio polish
+3. README / portfolio polish
    - Add project overview.
    - Add screenshots.
    - Add feature list.
    - Add technical architecture.
    - Add development-loop explanation.
 
-5. GitHub Actions validation
+4. GitHub Actions validation
    - Run Python syntax check.
    - Run `validate_question_bank.py`.
    - Prevent broken changes from being deployed.
@@ -145,22 +140,16 @@ It is not yet ready for:
 
 Recommended next task:
 
-> Implement dynamic Part 3 question generation one question at a time.
+> Add a learner profile / session learning summary that records recurring weaknesses and suggests the next-session focus.
 
 Acceptance criteria:
 
-1. Part 3 no longer has to generate all questions before the discussion starts.
-2. After each Part 3 answer, the app decides the next question based on:
-   - selected cue card
-   - reference Part 3 bank
-   - previous Part 3 answer
-   - full Part 2 answer
-3. Practice mode still allows a longer Part 3.
-4. Mock-test mode remains shorter.
-5. There is a hard maximum question count.
-6. If model generation fails, fallback questions from the bank are used.
-7. `python -m py_compile` passes.
-8. `python validate_question_bank.py` passes.
+1. The app summarizes recurring grammar, vocabulary, fluency, and answer-development weaknesses after a session.
+2. The summary is based only on the candidate's raw answers and timing data.
+3. The summary can be exported with the final report.
+4. The app does not store personal data outside the current session unless the user explicitly exports it.
+5. `python -m py_compile` passes.
+6. `python validate_question_bank.py` passes.
 
 ## Notes for future AI collaborators
 
