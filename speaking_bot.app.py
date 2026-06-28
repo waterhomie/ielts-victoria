@@ -39,6 +39,7 @@ MODEL = get_secret("MODEL", "gpt-5.4-mini")
 TRANSCRIPTION_MODEL = get_secret("TRANSCRIPTION_MODEL", "whisper-1")
 MOCK_PART3_QUESTION_COUNT = 4
 PRACTICE_PART3_QUESTION_COUNT = 6
+PART3_MAX_QUESTION_COUNT = 6
 
 if not API_KEY:
     st.error(
@@ -228,33 +229,31 @@ UPGRADED_ANSWER: I felt misunderstood and unfairly treated because I had tried t
 """
 
 
-def build_part3_adaptive_prompt(question_count):
+def build_next_part3_question_prompt():
     return f"""
-You are an IELTS Speaking examiner preparing exactly {question_count} Part 3 discussion questions.
+You are an IELTS Speaking examiner deciding the NEXT Part 3 discussion question.
 
 Use both sources:
 1. The recall-question-bank questions supplied for this Part 2 topic.
-2. The candidate's own Part 2 answer and short follow-up answer.
+2. The candidate's own Part 2 answer, short follow-up answer, and latest Part 3 answer.
 
 Rules:
 - Keep the questions clearly connected to the recall-question-bank topic.
-- In mock-test mode, this should feel like a realistic 4-5 minute Part 3 discussion.
-- In practice mode, this may be slightly more intensive for training.
-- The earlier questions should closely reflect useful angles from the question bank.
-- At least one later question should extend an idea actually mentioned by the candidate.
+- Use the latest answer to choose a useful next angle: reasons, comparison, consequences,
+  advantages and disadvantages, social impact, rules, or future change.
 - Turn personal details into broader analytical discussion about people, society, causes,
   comparisons, advantages and disadvantages, rules, or future change.
 - Do not merely ask the candidate to repeat or add details to the Part 2 story.
 - Do not assume the candidate said something that is absent from the transcript.
-- Move from relatively accessible discussion to more abstract critical thinking.
-- Return exactly {question_count} numbered, single-sentence questions and no other text.
+- Do not repeat any already-asked Part 3 question.
+- Return exactly ONE single-sentence question and no other text.
 """
 
 
 def get_part3_question_count():
     if st.session_state.get("practice_mode", True):
-        return PRACTICE_PART3_QUESTION_COUNT
-    return MOCK_PART3_QUESTION_COUNT
+        return min(PRACTICE_PART3_QUESTION_COUNT, PART3_MAX_QUESTION_COUNT)
+    return min(MOCK_PART3_QUESTION_COUNT, PART3_MAX_QUESTION_COUNT)
 
 
 st.markdown(
@@ -279,7 +278,12 @@ def call_model(messages):
     return response.choices[0].message.content.strip()
 
 
-def generate_adaptive_part3_questions(card, candidate_part2_answers, question_count):
+def legacy_generate_batch_part3_questions(card, candidate_part2_answers, question_count):
+    """Deprecated fallback for the old batch Part 3 flow.
+
+    The live app now uses generate_next_part3_question() so each Part 3 answer can
+    influence the next question.
+    """
     reference_questions = card.get("part3") or []
     fallback = list(reference_questions[:question_count])
     if len(fallback) < question_count:
@@ -301,7 +305,7 @@ def generate_adaptive_part3_questions(card, candidate_part2_answers, question_co
     try:
         result = call_model(
             [
-                {"role": "system", "content": build_part3_adaptive_prompt(question_count)},
+                {"role": "system", "content": build_next_part3_question_prompt()},
                 {
                     "role": "user",
                     "content": (
@@ -329,6 +333,103 @@ def generate_adaptive_part3_questions(card, candidate_part2_answers, question_co
                 break
 
     return questions[:question_count]
+
+
+GENERIC_PART3_FALLBACKS = [
+    "Why might people have different opinions about this topic?",
+    "How has this aspect of life changed in recent years?",
+    "Are younger and older people likely to think differently about it?",
+    "How might this topic develop in the future?",
+    "What could individuals or governments do to improve this situation?",
+]
+
+
+def normalize_question(question):
+    return re.sub(r"\s+", " ", question).strip().lower()
+
+
+def fallback_part3_question(card, asked_questions):
+    asked = {normalize_question(question) for question in asked_questions}
+    fallback_pool = list(card.get("part3") or []) + GENERIC_PART3_FALLBACKS
+    for question in fallback_pool:
+        if normalize_question(question) not in asked:
+            return question
+    return "What long-term effects could this issue have on society?"
+
+
+def extract_single_question(model_output):
+    cleaned_output = model_output.strip().strip('"').strip("'")
+    for line in cleaned_output.splitlines():
+        cleaned_line = re.sub(r"^\s*(?:\d+[.)锛?]|[-*])\s*", "", line).strip()
+        cleaned_line = re.sub(r"^(?:Question|Next question)\s*:\s*", "", cleaned_line, flags=re.I)
+        if cleaned_line.endswith("?"):
+            return cleaned_line
+
+    match = re.search(r"([^?\n]+\?)", cleaned_output)
+    if match:
+        return match.group(1).strip()
+    return None
+
+
+def format_part3_history(part3_history):
+    if not part3_history:
+        return "No Part 3 answer has been given yet."
+
+    history_lines = []
+    for index, item in enumerate(part3_history, start=1):
+        history_lines.append(f"Q{index}: {item['question']}")
+        history_lines.append(f"A{index}: {item['answer']}")
+    return "\n".join(history_lines)
+
+
+def generate_next_part3_question(
+    card,
+    candidate_part2_answers,
+    part3_history,
+    asked_questions,
+    question_number,
+    target_count,
+):
+    fallback = fallback_part3_question(card, asked_questions)
+    reference_questions = card.get("part3") or []
+    reference_text = "\n".join(f"- {question}" for question in reference_questions)
+    candidate_text = "\n".join(candidate_part2_answers).strip()
+    if not candidate_text:
+        candidate_text = "No usable candidate transcript was available."
+
+    asked_text = "\n".join(f"- {question}" for question in asked_questions)
+    if not asked_text:
+        asked_text = "No Part 3 question has been asked yet."
+
+    try:
+        result = call_model(
+            [
+                {"role": "system", "content": build_next_part3_question_prompt()},
+                {
+                    "role": "user",
+                    "content": (
+                        f"PART 2 TOPIC:\n{card['prompt']}\n\n"
+                        f"REFERENCE PART 3 QUESTIONS:\n{reference_text}\n\n"
+                        f"CANDIDATE'S PART 2 RESPONSES:\n{candidate_text}\n\n"
+                        f"PART 3 QUESTIONS ALREADY ASKED:\n{asked_text}\n\n"
+                        f"PART 3 HISTORY SO FAR:\n{format_part3_history(part3_history)}\n\n"
+                        f"Now generate question {question_number} of {target_count}."
+                    ),
+                },
+            ]
+        )
+    except Exception:
+        return fallback
+
+    question = extract_single_question(result)
+    if not question:
+        return fallback
+
+    asked = {normalize_question(item) for item in asked_questions}
+    if normalize_question(question) in asked:
+        return fallback
+
+    return question
 
 
 def extract_feedback_field(model_output, label_pattern):
@@ -602,6 +703,7 @@ def process_candidate_answer(answer, previous_question, answer_duration=None):
             st.session_state.part2_extension_used = False
             st.session_state.part2_answers = []
             st.session_state.part3_questions = []
+            st.session_state.part3_history = []
             st.session_state.timer_end = time.time() + 60
             st.session_state.timer_label = "Part 2 preparation time"
             start_prep_timer = True
@@ -639,24 +741,46 @@ def process_candidate_answer(answer, previous_question, answer_duration=None):
     elif phase == "part2_followup":
         st.session_state.part2_answers.append(answer)
         st.session_state.part3_target_count = get_part3_question_count()
-        st.session_state.part3_questions = generate_adaptive_part3_questions(
+        st.session_state.part3_questions = []
+        st.session_state.part3_history = []
+        first_part3_question = generate_next_part3_question(
             st.session_state.cue_card,
             st.session_state.part2_answers,
+            st.session_state.part3_history,
+            st.session_state.part3_questions,
+            1,
             st.session_state.part3_target_count,
         )
+        st.session_state.part3_questions.append(first_part3_question)
         st.session_state.phase = "part3"
-        st.session_state.part3_index = 1
+        st.session_state.part3_index = 0
         next_content = (
             "**Part 3 - Discussion**\n\n"
-            + st.session_state.part3_questions[0]
+            + first_part3_question
         )
 
     elif phase == "part3":
-        index = st.session_state.part3_index
-        questions = st.session_state.part3_questions
-        if index < len(questions):
-            next_content = questions[index]
-            st.session_state.part3_index += 1
+        current_question = (
+            st.session_state.part3_questions[-1]
+            if st.session_state.part3_questions
+            else previous_question
+        )
+        st.session_state.part3_history.append(
+            {"question": current_question, "answer": answer}
+        )
+        st.session_state.part3_index = len(st.session_state.part3_history)
+
+        if st.session_state.part3_index < st.session_state.part3_target_count:
+            next_question = generate_next_part3_question(
+                st.session_state.cue_card,
+                st.session_state.part2_answers,
+                st.session_state.part3_history,
+                st.session_state.part3_questions,
+                st.session_state.part3_index + 1,
+                st.session_state.part3_target_count,
+            )
+            st.session_state.part3_questions.append(next_question)
+            next_content = next_question
         else:
             st.session_state.phase = "complete"
             st.session_state.test_active = False
@@ -673,6 +797,8 @@ def process_candidate_answer(answer, previous_question, answer_duration=None):
         and next_content.startswith("Please continue")
     ):
         st.session_state.current_question = st.session_state.cue_card["prompt"]
+    elif st.session_state.phase == "part3" and st.session_state.part3_questions:
+        st.session_state.current_question = st.session_state.part3_questions[-1]
     else:
         st.session_state.current_question = next_content
 
@@ -705,6 +831,7 @@ if "messages" not in st.session_state:
     st.session_state.part2_extension_used = False
     st.session_state.part2_answers = []
     st.session_state.part3_questions = []
+    st.session_state.part3_history = []
     st.session_state.cue_card = random.choice(CUE_CARDS)
     st.session_state.current_question = FIRST_MESSAGE
     st.session_state.test_active = True
@@ -776,9 +903,11 @@ with st.sidebar:
     st.info(f"Current stage: {current_part}")
 
     if st.session_state.phase == "part3":
+        answered_part3 = len(st.session_state.get("part3_history", []))
+        target_part3 = st.session_state.get("part3_target_count", get_part3_question_count())
         st.caption(
-            f"Part 3 plan: {len(st.session_state.part3_questions)} main questions "
-            "generated from the topic bank and your Part 2 answer."
+            f"Part 3 dynamic loop: {answered_part3}/{target_part3} answers completed. "
+            "The next question is generated after each answer."
         )
     else:
         planned_part3_count = get_part3_question_count()
