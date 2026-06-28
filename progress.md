@@ -45,6 +45,11 @@ Last updated: 2026-06-28
   and smaller mobile title/layout spacing.
 - Suppressed "A natural version of your answer" when the candidate's answer is already
   natural or nearly identical to the suggested rewrite, avoiding fake-looking feedback.
+- Started V2 as a side-by-side architecture instead of continuing to overfit Streamlit:
+  `v2/backend` now contains a FastAPI-style stateless exam API and reusable IELTS
+  state engine; `v2/frontend` now contains a React/Vite iOS-style chat UI with a fixed
+  bottom composer and tap-to-record WAV capture. The Streamlit app remains the stable
+  fallback while V2 matures.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
