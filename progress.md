@@ -33,6 +33,9 @@ Last updated: 2026-06-28
 - Replaced Streamlit's native `st.audio_input` with a custom frontend voice composer:
   hold-to-speak recording, automatic upload after recording stops, optional transcript review,
   and compact Type mode in the same component.
+- Added a turn reset token and post-answer rerun so the composer clears after each response
+  and reappears under the latest examiner question instead of leaving the previous recording
+  UI in the middle of the conversation.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
