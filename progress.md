@@ -23,6 +23,13 @@ Last updated: 2026-06-28
 - Added natural answer upgrade while preserving the learner’s intended meaning.
 - Added Part 3 adaptive question generation from question bank plus Part 2 answers.
 - Changed Part 3 into a dynamic one-question-at-a-time loop that uses the previous Part 3 answer before generating the next question.
+- Added Part 3 discussion-angle de-duplication so benefits/drawbacks style questions are not repeated under different wording.
+- Added clarification handling in Part 3: if the learner says they do not understand, Victoria rephrases the current question instead of moving on.
+- Added Part 1 topic-transition wording such as "Let's talk about gifts" before switching topics.
+- Improved feedback behavior for long answers so practice mode can return up to three high-impact corrections.
+- Tightened answer-upgrade rules so Victoria does not invent motivations, histories, or future plans for very short answers.
+- Changed the default final report from a generic seven-day plan to three transcript-specific next practice tasks.
+- Made the recorder section more visible and clearer by default.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
@@ -71,6 +78,7 @@ It is not yet ready for:
 
 - `process_candidate_answer` is still large and should eventually be split into stage-specific handlers.
 - Part 3 dynamic generation now depends on model quality; fallback bank questions are used when generation fails.
+- The audio input and text input are still separate UI components; a unified voice-in-chat input would require a separate frontend/component iteration.
 - There is no persistent learner profile, so the app does not remember weaknesses across sessions.
 - There is no database or user account system.
 - TTS depends on `gTTS`, which may be slow or unavailable sometimes.
