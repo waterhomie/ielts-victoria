@@ -183,16 +183,17 @@ The app may process:
 - Transcribed text
 - Practice reports
 
-The current input interface uses a unified Answer Composer built with native
-Streamlit widgets:
+The current input interface uses a compact, voice-first Answer Composer built
+with native Streamlit widgets:
 
-- typed answer submission
+- Voice mode by default
 - browser recording
-- one-click transcribe-and-submit
+- automatic transcribe-and-submit after recording stops
 - optional transcript review before submission
+- Type mode with a small text input
 
-A true WeChat-style chat bar with an embedded microphone would require a custom
-frontend component beyond native `st.chat_input`.
+A true WeChat-style chat bar with an embedded microphone / press-to-talk behavior
+would require a custom frontend component beyond native `st.chat_input`.
 
 Privacy rule:
 
