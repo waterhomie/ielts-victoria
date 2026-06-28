@@ -635,6 +635,13 @@ def transcribe_audio(audio_bytes):
     return text.strip()
 
 
+def transcribe_recording(recorded_audio):
+    audio_bytes = recorded_audio.getvalue()
+    transcript = transcribe_audio(audio_bytes)
+    duration = get_wav_duration(audio_bytes)
+    return transcript, duration
+
+
 def save_answer_stats(text, source, duration, phase):
     word_count = len(re.findall(r"[A-Za-z']+", text))
     words_per_minute = None
@@ -1014,6 +1021,7 @@ if "messages" not in st.session_state:
     st.session_state.answer_stats = []
     st.session_state.candidate_answers = []
     st.session_state.audio_input_key = 0
+    st.session_state.text_input_key = 0
 
 
 # --- SIDEBAR TOOLS ---
@@ -1215,42 +1223,99 @@ if st.session_state.test_active:
     input_source = "text"
     answer_duration = None
 
-    with st.expander("Record your answer, then edit and submit", expanded=True):
+    with st.container(border=True):
+        st.markdown("#### Your answer")
         st.caption(
-            "Record in English, transcribe it, edit the transcript if needed, then submit. "
-            "Your recording is sent to your configured GPTs API provider for transcription."
+            "Type or record in the same answer area. For recordings, you can either "
+            "submit immediately after transcription or review the transcript first."
+        )
+
+        text_key = st.session_state.text_input_key
+        typed_answer = st.text_area(
+            "Type your answer",
+            placeholder="Type your answer here, or record your voice below...",
+            key=f"typed_answer_{text_key}",
+            height=90,
+            label_visibility="collapsed",
+        )
+        if st.button(
+            "Submit typed answer",
+            disabled=not typed_answer.strip(),
+            key=f"submit_text_{text_key}",
+            type="primary",
+            use_container_width=True,
+        ):
+            user_input = typed_answer.strip()
+            input_source = "text"
+            answer_duration = None
+            st.session_state.text_input_key += 1
+
+        st.divider()
+
+        st.caption(
+            "Voice mode: your recording is sent to your configured GPTs API provider "
+            "for English transcription. Victoria currently evaluates the transcript; "
+            "formal pronunciation scoring is not enabled yet."
         )
         recorder_key = st.session_state.audio_input_key
         recorded_audio = st.audio_input(
-            "Speak in English",
+            "Record your spoken answer",
             key=f"audio_answer_{recorder_key}",
         )
 
-        if st.button(
-            "Transcribe recording",
-            disabled=recorded_audio is None,
-            key=f"transcribe_audio_{recorder_key}",
-            use_container_width=True,
-        ):
-            audio_bytes = recorded_audio.getvalue()
+        audio_submit_col, audio_review_col = st.columns(2)
+        with audio_submit_col:
+            submit_recording_now = st.button(
+                "Transcribe & submit recording",
+                disabled=recorded_audio is None,
+                key=f"submit_recording_now_{recorder_key}",
+                type="primary",
+                use_container_width=True,
+            )
+        with audio_review_col:
+            transcribe_for_review = st.button(
+                "Transcribe for review",
+                disabled=recorded_audio is None,
+                key=f"transcribe_audio_{recorder_key}",
+                use_container_width=True,
+            )
+
+        if submit_recording_now:
+            with st.spinner("Transcribing and submitting your recording..."):
+                try:
+                    user_input, answer_duration = transcribe_recording(recorded_audio)
+                    input_source = "audio"
+                    st.session_state.audio_input_key += 1
+                    st.session_state.pop("pending_transcript", None)
+                    st.session_state.pop("pending_audio_duration", None)
+                except Exception as error:
+                    user_input = None
+                    st.error(
+                        "Audio transcription is temporarily unavailable. "
+                        f"You can still type your answer above. Details: {error}"
+                    )
+
+        if transcribe_for_review:
             with st.spinner("Transcribing your recording..."):
                 try:
-                    st.session_state.pending_transcript = transcribe_audio(audio_bytes)
-                    st.session_state.pending_audio_duration = get_wav_duration(audio_bytes)
+                    (
+                        st.session_state.pending_transcript,
+                        st.session_state.pending_audio_duration,
+                    ) = transcribe_recording(recorded_audio)
                 except Exception as error:
                     st.error(
                         "Audio transcription is temporarily unavailable. "
-                        f"You can still type your answer below. Details: {error}"
+                        f"You can still type your answer above. Details: {error}"
                     )
 
         if st.session_state.get("pending_transcript"):
             edited_transcript = st.text_area(
-                "Review the transcript before submitting",
+                "Review or edit the transcript before submitting",
                 value=st.session_state.pending_transcript,
                 key=f"transcript_editor_{recorder_key}",
             )
             if st.button(
-                "Submit recorded answer",
+                "Submit reviewed transcript",
                 key=f"submit_audio_{recorder_key}",
                 type="primary",
                 use_container_width=True,
@@ -1261,12 +1326,6 @@ if st.session_state.test_active:
                 st.session_state.audio_input_key += 1
                 st.session_state.pop("pending_transcript", None)
                 st.session_state.pop("pending_audio_duration", None)
-
-    typed_input = st.chat_input("Type your answer, or use the recorder above...")
-    if typed_input:
-        user_input = typed_input
-        input_source = "text"
-        answer_duration = None
 
     if user_input:
         answer_phase = st.session_state.phase
