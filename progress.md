@@ -30,8 +30,9 @@ Last updated: 2026-06-28
 - Tightened answer-upgrade rules so Victoria does not invent motivations, histories, or future plans for very short answers.
 - Changed the default final report from a generic seven-day plan to three transcript-specific next practice tasks.
 - Made the recorder section more visible and clearer by default.
-- Replaced the split chat input / recorder layout with a unified Answer Composer:
-  typed answer, voice recording, one-click transcribe-and-submit, and transcript review live in one answer area.
+- Replaced the split chat input / recorder layout with a compact voice-first Answer Composer:
+  Voice mode is the default, recordings auto-transcribe and auto-submit after stopping,
+  and Type mode uses a small single-line text input.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
@@ -80,7 +81,7 @@ It is not yet ready for:
 
 - `process_candidate_answer` is still large and should eventually be split into stage-specific handlers.
 - Part 3 dynamic generation now depends on model quality; fallback bank questions are used when generation fails.
-- The app now has a unified Answer Composer using native Streamlit widgets. A true WeChat-style bottom input bar with an embedded microphone still requires a separate custom frontend component.
+- The app now has a compact native Streamlit Answer Composer. A true WeChat-style bottom input bar with an embedded microphone / press-to-talk behavior still requires a separate custom frontend component.
 - There is no persistent learner profile, so the app does not remember weaknesses across sessions.
 - There is no database or user account system.
 - TTS depends on `gTTS`, which may be slow or unavailable sometimes.
