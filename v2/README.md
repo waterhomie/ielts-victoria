@@ -49,8 +49,8 @@ v2/
 Backend:
 
 ```powershell
-cd v2/backend
-python -m pip install -r requirements.txt
+cd C:\Users\86158\Documents\雅思口语陪练
+python -m pip install -r v2/backend/requirements.txt
 $env:API_KEY="your-key"
 $env:BASE_URL="https://api.gptsapi.net/v1"
 $env:MODEL="gpt-5.4-mini"
@@ -61,6 +61,13 @@ Run the backend command from the repository root if Python cannot find the `v2` 
 
 ```powershell
 python -m uvicorn v2.backend.app:app --reload --host 0.0.0.0 --port 8000
+```
+
+Backend smoke test:
+
+```powershell
+cd C:\Users\86158\Documents\雅思口语陪练
+python -m v2.backend.smoke_test
 ```
 
 Frontend:
@@ -103,8 +110,8 @@ http://localhost:5173
 
 - Python compile check for the V2 backend modules.
 - Backend engine smoke test: start session -> identity answer -> Part 1 answer.
-- FastAPI route smoke test with `TestClient`: `/api/health`, `/api/sessions`,
-  and `/api/answer`.
+- FastAPI route smoke test with `python -m v2.backend.smoke_test`:
+  `/api/health`, `/api/sessions`, and `/api/answer`.
 - Frontend dependency install with pnpm.
 - Frontend production build with Vite.
 - Question-bank validation from the existing app.
