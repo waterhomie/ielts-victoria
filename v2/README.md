@@ -25,6 +25,11 @@ interaction. That makes it difficult to build a truly native chat interface with
 
 V2 moves those responsibilities into React and leaves Python to handle AI logic.
 
+Related docs:
+
+- [API contract](./API_CONTRACT.md)
+- [Deployment plan](./DEPLOYMENT.md)
+
 ## Directory structure
 
 ```text
