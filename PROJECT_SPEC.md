@@ -206,7 +206,34 @@ Privacy rule:
 
 The API key must never be hard-coded in public source code.
 
-## 11. Final report rules
+## 11. V2 architecture track
+
+The Streamlit app remains the stable prototype and public fallback. A separate
+V2 track now exists under `v2/` for a real chat-product architecture:
+
+- `v2/backend`: FastAPI-style Python API
+- `v2/backend/engine.py`: Streamlit-independent IELTS state machine
+- `v2/backend/schemas.py`: explicit session/request/response models
+- `v2/frontend`: React/Vite mobile-first chat interface
+- `v2/frontend/src/recorder.js`: browser WAV recorder for tap-to-record voice input
+
+V2 is designed to solve the limitations of Streamlit reruns:
+
+- fixed bottom composer
+- frontend-owned message list
+- local mobile audio capture
+- cleaner path toward WeChat Mini Program or native-style frontend
+- reusable backend for future clients
+
+V2 should not replace the Streamlit production app until it has passed:
+
+- frontend production build
+- backend API smoke tests
+- iPhone Safari microphone test
+- WeChat in-app browser microphone test
+- deployment test with separate frontend/backend services
+
+## 12. Final report rules
 
 The final IELTS report should score only the candidate’s raw answers.
 
@@ -230,7 +257,7 @@ A generic seven-day plan should not be the default report output.
 
 Pronunciation should not be assessed confidently unless acoustic analysis is implemented.
 
-## 12. Current non-goals
+## 13. Current non-goals
 
 The app currently does not include:
 
@@ -245,7 +272,7 @@ The app currently does not include:
 
 These may be future product directions, but they should not be mixed into the core IELTS Speaking Loop until the basic practice loop is stable.
 
-## 13. Product direction
+## 14. Product direction
 
 The next major product evolution is not “more pages”.
 
