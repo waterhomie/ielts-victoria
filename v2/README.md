@@ -91,7 +91,6 @@ http://localhost:5173
 
 ## Still to finish before replacing Streamlit
 
-- Run full `npm install && npm run build` after dependencies are installed.
 - Live-test microphone permissions on iPhone Safari and WeChat in-app browser.
 - Add proper authentication/rate limiting before public launch.
 - Decide deployment target:
@@ -100,3 +99,12 @@ http://localhost:5173
 - Add persistent practice history if user accounts become necessary.
 - Add production CORS allowlist instead of `allow_origins=["*"]`.
 
+## Verification already completed
+
+- Python compile check for the V2 backend modules.
+- Backend engine smoke test: start session -> identity answer -> Part 1 answer.
+- FastAPI route smoke test with `TestClient`: `/api/health`, `/api/sessions`,
+  and `/api/answer`.
+- Frontend dependency install with pnpm.
+- Frontend production build with Vite.
+- Question-bank validation from the existing app.
