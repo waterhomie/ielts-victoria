@@ -7,34 +7,50 @@
   <style>
     :root {
       --accent: #ff4b4b;
-      --border: #e6e8ef;
-      --text: #262730;
-      --muted: #7b8190;
-      --bg: #ffffff;
-      --soft: #f6f7fb;
+      --accent-dark: #e63d3d;
+      --glass: rgba(255, 255, 255, 0.78);
+      --glass-strong: rgba(255, 255, 255, 0.92);
+      --border: rgba(120, 120, 128, 0.22);
+      --text: #1d1d1f;
+      --muted: #8a8d96;
+      --soft: rgba(242, 242, 247, 0.92);
+      --shadow: 0 12px 36px rgba(0, 0, 0, 0.10);
     }
 
     * {
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
+    html,
     body {
       margin: 0;
       padding: 0;
       background: transparent;
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      overscroll-behavior: none;
     }
 
-    .composer {
+    button,
+    input,
+    label {
+      -webkit-touch-callout: none;
+      user-select: none;
+    }
+
+    .dock {
       width: 100%;
+      min-height: 64px;
       border: 1px solid var(--border);
-      border-radius: 999px;
-      background: var(--bg);
-      box-shadow: 0 8px 24px rgba(38, 39, 48, 0.06);
+      border-radius: 32px;
+      background: var(--glass);
+      box-shadow: var(--shadow);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       padding: 8px;
     }
 
@@ -44,15 +60,17 @@
       background: var(--soft);
       color: var(--muted);
       cursor: pointer;
-      min-width: 58px;
-      height: 42px;
-      font-size: 17px;
-      transition: all 0.15s ease;
+      min-width: 56px;
+      height: 48px;
+      font-size: 16px;
+      font-weight: 600;
+      transition: transform 0.14s ease, background 0.14s ease, color 0.14s ease;
     }
 
-    .mode:hover {
-      color: var(--text);
-      background: #eceef5;
+    .mode:active,
+    .record:active,
+    .send:active {
+      transform: scale(0.97);
     }
 
     .voice-main,
@@ -64,42 +82,74 @@
       gap: 8px;
     }
 
-    .hold {
+    .record {
       flex: 1;
       border: 0;
       border-radius: 999px;
-      background: var(--soft);
+      background: var(--glass-strong);
       color: var(--text);
-      height: 44px;
-      font-size: 16px;
+      height: 48px;
+      font-size: 17px;
+      font-weight: 650;
       cursor: pointer;
-      user-select: none;
-      transition: all 0.12s ease;
+      touch-action: manipulation;
+      transition: transform 0.14s ease, background 0.14s ease, color 0.14s ease,
+        box-shadow 0.14s ease;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .hold.recording {
+    .record.recording {
       background: var(--accent);
       color: white;
-      box-shadow: 0 0 0 6px rgba(255, 75, 75, 0.14);
+      box-shadow: 0 0 0 7px rgba(255, 75, 75, 0.14);
+    }
+
+    .record.processing {
+      background: var(--accent-dark);
+      color: white;
+      opacity: 0.9;
     }
 
     .status {
-      min-width: 72px;
+      min-width: 58px;
       text-align: right;
-      font-variant-numeric: tabular-nums;
       color: var(--muted);
       font-size: 14px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .review {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 13px;
+      padding-right: 4px;
+      white-space: nowrap;
+    }
+
+    .review input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
     }
 
     .text-input {
       flex: 1;
+      min-width: 0;
       border: 0;
       outline: none;
-      height: 44px;
-      padding: 0 12px;
+      height: 48px;
+      padding: 0 14px;
+      border-radius: 999px;
       font-size: 16px;
-      background: transparent;
+      background: var(--glass-strong);
       color: var(--text);
+      user-select: text;
+      -webkit-touch-callout: default;
     }
 
     .send {
@@ -108,52 +158,77 @@
       background: var(--accent);
       color: white;
       cursor: pointer;
-      min-width: 58px;
-      height: 42px;
+      min-width: 56px;
+      height: 48px;
       font-size: 15px;
-      font-weight: 600;
+      font-weight: 700;
+      transition: transform 0.14s ease, opacity 0.14s ease;
     }
 
     .send:disabled {
-      opacity: 0.4;
+      opacity: 0.35;
       cursor: not-allowed;
-    }
-
-    .review {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--muted);
-      font-size: 13px;
-      padding-right: 4px;
-      white-space: nowrap;
-    }
-
-    .review input {
-      accent-color: var(--accent);
     }
 
     .hidden {
       display: none;
     }
+
+    @media (max-width: 520px) {
+      .dock {
+        min-height: 60px;
+        gap: 6px;
+        padding: 7px;
+        border-radius: 30px;
+      }
+
+      .mode,
+      .record,
+      .text-input,
+      .send {
+        height: 46px;
+      }
+
+      .mode,
+      .send {
+        min-width: 52px;
+        font-size: 14px;
+      }
+
+      .record {
+        font-size: 16px;
+      }
+
+      .status {
+        min-width: 44px;
+        font-size: 13px;
+      }
+
+      .review {
+        max-width: 34px;
+        overflow: hidden;
+        font-size: 0;
+        padding-right: 0;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="composer">
-    <button class="mode" id="modeButton" title="Switch text / voice">Text</button>
+  <div class="dock">
+    <button class="mode" id="modeButton" type="button" title="Switch text / voice">Text</button>
 
     <div class="voice-main" id="voiceMain">
-      <button class="hold" id="holdButton">Hold to speak</button>
+      <button class="record" id="recordButton" type="button">Tap to record</button>
       <span class="status" id="status">ready</span>
       <label class="review" title="Review transcript before sending">
         <input type="checkbox" id="reviewCheckbox" />
-        review
+        <span>review</span>
       </label>
     </div>
 
     <div class="text-main hidden" id="textMain">
       <input class="text-input" id="textInput" placeholder="Type your answer..." />
-      <button class="send" id="sendButton" disabled>Send</button>
+      <button class="send" id="sendButton" type="button" disabled>Send</button>
     </div>
   </div>
 
@@ -161,42 +236,50 @@
     const Streamlit = window.Streamlit
       || (window.streamlitComponentLib && window.streamlitComponentLib.Streamlit)
       || {
-      setComponentReady: () => window.parent.postMessage({
-        isStreamlitMessage: true,
-        type: "streamlit:componentReady",
-        apiVersion: 1,
-      }, "*"),
-      setFrameHeight: (height) => window.parent.postMessage({
-        isStreamlitMessage: true,
-        type: "streamlit:setFrameHeight",
-        height,
-      }, "*"),
-      setComponentValue: (value) => window.parent.postMessage({
-        isStreamlitMessage: true,
-        type: "streamlit:setComponentValue",
-        value,
-        dataType: "json",
-      }, "*"),
-    };
+        setComponentReady: () => window.parent.postMessage({
+          isStreamlitMessage: true,
+          type: "streamlit:componentReady",
+          apiVersion: 1,
+        }, "*"),
+        setFrameHeight: (height) => window.parent.postMessage({
+          isStreamlitMessage: true,
+          type: "streamlit:setFrameHeight",
+          height,
+        }, "*"),
+        setComponentValue: (value) => window.parent.postMessage({
+          isStreamlitMessage: true,
+          type: "streamlit:setComponentValue",
+          value,
+          dataType: "json",
+        }, "*"),
+      };
+
     const STREAMLIT_RENDER_EVENT = Streamlit.RENDER_EVENT || "streamlit:render";
 
     const modeButton = document.getElementById("modeButton");
     const voiceMain = document.getElementById("voiceMain");
     const textMain = document.getElementById("textMain");
-    const holdButton = document.getElementById("holdButton");
+    const recordButton = document.getElementById("recordButton");
     const statusEl = document.getElementById("status");
     const reviewCheckbox = document.getElementById("reviewCheckbox");
     const textInput = document.getElementById("textInput");
     const sendButton = document.getElementById("sendButton");
 
     let mode = "voice";
-    let mediaRecorder = null;
-    let chunks = [];
+    let recording = false;
+    let processing = false;
     let startTime = 0;
     let timerId = null;
-    let recording = false;
-    let activePointerId = null;
     let lastResetToken = null;
+
+    let mediaStream = null;
+    let audioContext = null;
+    let sourceNode = null;
+    let processorNode = null;
+    let silentGain = null;
+    let audioChunks = [];
+    let recordedLength = 0;
+    let captureSampleRate = 44100;
 
     function setHeight() {
       Streamlit.setFrameHeight(document.body.scrollHeight + 2);
@@ -218,7 +301,7 @@
         textMain.classList.remove("hidden");
         modeButton.textContent = "Voice";
         modeButton.title = "Switch to voice";
-        textInput.focus();
+        setTimeout(() => textInput.focus(), 50);
       }
       setHeight();
     }
@@ -228,35 +311,111 @@
       statusEl.textContent = `${elapsed.toFixed(1)}s`;
     }
 
-    function resetComposer() {
-      if (recording && mediaRecorder && mediaRecorder.state !== "inactive") {
-        try {
-          mediaRecorder.stop();
-        } catch (_) {
-          // The recorder may already have stopped during a rerender.
-        }
-      }
+    function setIdleState() {
       recording = false;
-      activePointerId = null;
-      chunks = [];
+      processing = false;
       clearInterval(timerId);
       timerId = null;
-      holdButton.classList.remove("recording");
-      holdButton.textContent = "Hold to speak";
+      recordButton.classList.remove("recording", "processing");
+      recordButton.textContent = "Tap to record";
+      recordButton.disabled = false;
       statusEl.textContent = "ready";
-      textInput.value = "";
-      sendButton.disabled = true;
       setHeight();
     }
 
-    function getMimeType() {
-      const candidates = [
-        "audio/webm;codecs=opus",
-        "audio/webm",
-        "audio/mp4",
-      ];
-      if (!window.MediaRecorder) return "";
-      return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
+    function cleanupAudioGraph() {
+      if (processorNode) {
+        processorNode.disconnect();
+        processorNode.onaudioprocess = null;
+      }
+      if (sourceNode) sourceNode.disconnect();
+      if (silentGain) silentGain.disconnect();
+      if (mediaStream) {
+        mediaStream.getTracks().forEach((track) => track.stop());
+      }
+      if (audioContext && audioContext.state !== "closed") {
+        audioContext.close().catch(() => {});
+      }
+      mediaStream = null;
+      audioContext = null;
+      sourceNode = null;
+      processorNode = null;
+      silentGain = null;
+    }
+
+    function resetComposer() {
+      cleanupAudioGraph();
+      audioChunks = [];
+      recordedLength = 0;
+      textInput.value = "";
+      sendButton.disabled = true;
+      setIdleState();
+    }
+
+    function mergeAudioChunks(chunks, totalLength) {
+      const result = new Float32Array(totalLength);
+      let offset = 0;
+      chunks.forEach((chunk) => {
+        result.set(chunk, offset);
+        offset += chunk.length;
+      });
+      return result;
+    }
+
+    function writeString(view, offset, string) {
+      for (let i = 0; i < string.length; i += 1) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    }
+
+    function floatTo16BitPcm(view, offset, samples) {
+      for (let i = 0; i < samples.length; i += 1, offset += 2) {
+        const sample = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      }
+    }
+
+    function downsampleBuffer(buffer, inputSampleRate, outputSampleRate) {
+      if (!inputSampleRate || outputSampleRate >= inputSampleRate) return buffer;
+      const ratio = inputSampleRate / outputSampleRate;
+      const newLength = Math.round(buffer.length / ratio);
+      const result = new Float32Array(newLength);
+      let offsetResult = 0;
+      let offsetBuffer = 0;
+
+      while (offsetResult < result.length) {
+        const nextOffsetBuffer = Math.round((offsetResult + 1) * ratio);
+        let accumulator = 0;
+        let count = 0;
+        for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i += 1) {
+          accumulator += buffer[i];
+          count += 1;
+        }
+        result[offsetResult] = count ? accumulator / count : 0;
+        offsetResult += 1;
+        offsetBuffer = nextOffsetBuffer;
+      }
+      return result;
+    }
+
+    function encodeWav(samples, sampleRate) {
+      const buffer = new ArrayBuffer(44 + samples.length * 2);
+      const view = new DataView(buffer);
+      writeString(view, 0, "RIFF");
+      view.setUint32(4, 36 + samples.length * 2, true);
+      writeString(view, 8, "WAVE");
+      writeString(view, 12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeString(view, 36, "data");
+      view.setUint32(40, samples.length * 2, true);
+      floatTo16BitPcm(view, 44, samples);
+      return new Blob([view], { type: "audio/wav" });
     }
 
     function blobToBase64(blob) {
@@ -272,74 +431,119 @@
     }
 
     async function startRecording() {
-      if (recording) return;
+      if (recording || processing) return;
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         statusEl.textContent = "no mic";
         return;
       }
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const mimeType = getMimeType();
-        mediaRecorder = mimeType
-          ? new MediaRecorder(stream, { mimeType })
-          : new MediaRecorder(stream);
-        chunks = [];
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data && event.data.size > 0) chunks.push(event.data);
-        };
-        mediaRecorder.onstop = async () => {
-          stream.getTracks().forEach((track) => track.stop());
-          const duration = Math.max(0.1, (Date.now() - startTime) / 1000);
-          if (duration < 0.5) {
-            statusEl.textContent = "too short";
-            holdButton.textContent = "Hold to speak";
-            setTimeout(() => {
-              statusEl.textContent = "ready";
-            }, 800);
-            return;
-          }
-          const actualMimeType = mediaRecorder.mimeType || mimeType || "audio/webm";
-          const blob = new Blob(chunks, { type: actualMimeType });
-          const audioBase64 = await blobToBase64(blob);
-          statusEl.textContent = "sending";
-          holdButton.textContent = "Hold to speak";
-          holdButton.classList.remove("recording");
-          Streamlit.setComponentValue({
-            id: eventId(),
-            kind: "audio",
-            audioBase64,
-            mimeType: actualMimeType,
-            duration,
-            review: reviewCheckbox.checked,
-          });
-          chunks = [];
-          setTimeout(() => {
-            statusEl.textContent = "ready";
-          }, 500);
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          statusEl.textContent = "no audio";
+          mediaStream.getTracks().forEach((track) => track.stop());
+          mediaStream = null;
+          return;
+        }
+
+        audioContext = new AudioContextClass();
+        if (audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
+        captureSampleRate = audioContext.sampleRate || 44100;
+        sourceNode = audioContext.createMediaStreamSource(mediaStream);
+        processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+        silentGain = audioContext.createGain();
+        silentGain.gain.value = 0;
+        audioChunks = [];
+        recordedLength = 0;
+
+        processorNode.onaudioprocess = (event) => {
+          if (!recording) return;
+          const input = event.inputBuffer.getChannelData(0);
+          const copy = new Float32Array(input.length);
+          copy.set(input);
+          audioChunks.push(copy);
+          recordedLength += copy.length;
         };
 
-        mediaRecorder.start();
+        sourceNode.connect(processorNode);
+        processorNode.connect(silentGain);
+        silentGain.connect(audioContext.destination);
+
         recording = true;
         startTime = Date.now();
-        holdButton.classList.add("recording");
-        holdButton.textContent = "Release to send";
+        recordButton.classList.add("recording");
+        recordButton.textContent = "Tap to send";
         statusEl.textContent = "0.0s";
         timerId = setInterval(updateTimer, 100);
       } catch (error) {
+        cleanupAudioGraph();
         statusEl.textContent = "blocked";
       }
     }
 
-    function stopRecording() {
-      if (!recording || !mediaRecorder) return;
+    async function stopAndSendRecording() {
+      if (!recording || processing) return;
       recording = false;
-      activePointerId = null;
-      holdButton.classList.remove("recording");
+      processing = true;
       clearInterval(timerId);
       timerId = null;
+      recordButton.classList.remove("recording");
+      recordButton.classList.add("processing");
+      recordButton.textContent = "Sending...";
+      recordButton.disabled = true;
       statusEl.textContent = "processing";
-      mediaRecorder.stop();
+
+      const duration = Math.max(0.1, (Date.now() - startTime) / 1000);
+      const chunks = audioChunks.slice();
+      const length = recordedLength;
+      const sampleRate = captureSampleRate;
+      cleanupAudioGraph();
+      audioChunks = [];
+      recordedLength = 0;
+
+      if (duration < 0.5 || length < sampleRate * 0.3) {
+        statusEl.textContent = "too short";
+        setTimeout(setIdleState, 800);
+        return;
+      }
+
+      try {
+        const samples = mergeAudioChunks(chunks, length);
+        const targetSampleRate = 16000;
+        const compactSamples = downsampleBuffer(samples, sampleRate, targetSampleRate);
+        const wavBlob = encodeWav(compactSamples, targetSampleRate);
+        const audioBase64 = await blobToBase64(wavBlob);
+        Streamlit.setComponentValue({
+          id: eventId(),
+          kind: "audio",
+          audioBase64,
+          mimeType: "audio/wav",
+          duration,
+          review: reviewCheckbox.checked,
+        });
+        setTimeout(setIdleState, 500);
+      } catch (error) {
+        statusEl.textContent = "failed";
+        setTimeout(setIdleState, 1200);
+      }
+    }
+
+    async function toggleRecording() {
+      if (processing) return;
+      if (recording) {
+        await stopAndSendRecording();
+      } else {
+        await startRecording();
+      }
     }
 
     function sendText() {
@@ -355,50 +559,16 @@
       textInput.focus();
     }
 
-    function stopRecordingFromPointer(event) {
-      if (activePointerId !== null && event.pointerId !== activePointerId) return;
-      event.preventDefault();
-      if (holdButton.releasePointerCapture && activePointerId !== null) {
-        try {
-          holdButton.releasePointerCapture(activePointerId);
-        } catch (_) {
-          // Pointer capture may already be released.
-        }
-      }
-      stopRecording();
-    }
-
     modeButton.addEventListener("click", () => {
+      if (recording || processing) return;
       setMode(mode === "voice" ? "text" : "voice");
     });
 
-    holdButton.addEventListener("pointerdown", (event) => {
-      event.preventDefault();
-      activePointerId = event.pointerId;
-      if (holdButton.setPointerCapture) {
-        try {
-          holdButton.setPointerCapture(activePointerId);
-        } catch (_) {
-          // Older browsers may not support pointer capture inside iframes.
-        }
-      }
-      startRecording();
-    });
-    holdButton.addEventListener("pointerup", stopRecordingFromPointer);
-    holdButton.addEventListener("pointercancel", stopRecordingFromPointer);
-    holdButton.addEventListener("lostpointercapture", () => {
-      if (recording) stopRecording();
-    });
-    holdButton.addEventListener("keydown", (event) => {
-      if ((event.key === " " || event.key === "Enter") && !recording) {
-        event.preventDefault();
-        startRecording();
-      }
-    });
-    holdButton.addEventListener("keyup", (event) => {
+    recordButton.addEventListener("click", toggleRecording);
+    recordButton.addEventListener("keydown", (event) => {
       if (event.key === " " || event.key === "Enter") {
         event.preventDefault();
-        stopRecording();
+        toggleRecording();
       }
     });
 
