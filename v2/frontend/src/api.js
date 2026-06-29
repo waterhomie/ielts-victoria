@@ -13,7 +13,11 @@ async function request(path, options = {}) {
     let message = `${response.status} ${response.statusText}`;
     try {
       const data = await response.json();
-      message = data.detail || message;
+      if (typeof data.detail === "string") {
+        message = data.detail;
+      } else if (data.detail) {
+        message = JSON.stringify(data.detail);
+      }
     } catch (_) {
       // Some endpoints return plain text or binary.
     }
