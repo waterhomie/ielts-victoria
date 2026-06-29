@@ -96,6 +96,10 @@ Last updated: 2026-06-29
   before reaching the TTS provider.
 - Refined V2 frontend error mapping so rate-limit and oversized-payload messages remain
   specific instead of being mistaken for generic transcription failures.
+- Expanded the V2 deployment smoke check to verify CORS preflight and a real
+  session-start/identity-answer API flow in addition to health, question bank, and frontend HTML.
+- Fixed V2 frontend helper scripts so custom dev ports are honored reliably through
+  `pnpm exec vite`, then verified the local stack on alternate ports.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
