@@ -106,6 +106,8 @@ Last updated: 2026-06-29
   Part 2 follow-up, and Part 3 logic now live in smaller phase handlers while preserving behavior.
 - Added V2 focused practice modes for Full, Part 1, Part 2, and Part 3, with
   frontend mode selection, backend session tracking, and focused-mode start phases.
+- Added selectable Part 1 topics and Part 2/3 cue cards for focused practice, powered by
+  a new `/api/practice-options` endpoint while keeping random selection as the default.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
@@ -224,13 +226,13 @@ It is not yet ready for:
 
 Recommended next task:
 
-> Add topic/category selection for focused practice.
+> Add practice-history export format.
 
 Acceptance criteria:
 
-1. The frontend lets the learner choose at least one Part 1 topic or Part 2 category.
-2. The backend uses the selected topic/category when starting a new session.
-3. Random mode remains available as the default.
+1. Export combines transcript, report, session learning summary, and timing stats into one file.
+2. The export is based only on current-session data.
+3. It works before and after completing the full mock test.
 4. `python -m py_compile` passes.
 5. `python validate_question_bank.py` passes.
 6. Frontend production build passes.
