@@ -60,6 +60,8 @@ Start both backend and frontend in the background:
 .\v2\scripts\run_local_stack.ps1
 ```
 
+After dependencies are already installed, add `-SkipInstall` for faster restarts.
+
 Stop the background stack:
 
 ```powershell
@@ -78,11 +80,15 @@ Open a second terminal:
 .\v2\scripts\run_frontend.ps1
 ```
 
+Both single-service scripts also support `-SkipInstall`.
+
 Run all local checks:
 
 ```powershell
 .\v2\scripts\check_v2.ps1
 ```
+
+For repeat checks with the cached local dependencies, use `.\v2\scripts\check_v2.ps1 -SkipInstall`.
 
 Check a deployed frontend/backend pair:
 
