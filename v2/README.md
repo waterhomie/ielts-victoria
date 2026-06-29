@@ -84,6 +84,8 @@ python -m pip install -r v2/backend/requirements.txt
 $env:API_KEY="your-key"
 $env:BASE_URL="https://api.gptsapi.net/v1"
 $env:MODEL="gpt-5.4-mini"
+$env:CORS_ORIGINS="http://localhost:5173"
+$env:MAX_AUDIO_UPLOAD_MB="12"
 python -m uvicorn v2.backend.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -128,14 +130,15 @@ http://localhost:5173
   - frontend: Vercel / Netlify / Cloudflare Pages
   - backend: Render / Railway / Fly.io / Cloud Run
 - Add persistent practice history if user accounts become necessary.
-- Add production CORS allowlist instead of `allow_origins=["*"]`.
+- Set production `CORS_ORIGINS` to the deployed frontend domain.
 
 ## Verification already completed
 
 - Python compile check for the V2 backend modules.
 - Backend engine smoke test: start session -> identity answer -> Part 1 answer.
 - FastAPI route smoke test with `python -m v2.backend.smoke_test`:
-  `/api/health`, `/api/sessions`, and `/api/answer`.
+  `/api/health`, `/api/question-bank`, `/api/sessions`, `/api/answer`,
+  and oversized audio rejection for `/api/transcribe`.
 - Frontend dependency install with pnpm.
 - Frontend production build with Vite.
 - Question-bank validation from the existing app.
