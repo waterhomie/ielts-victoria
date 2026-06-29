@@ -20,6 +20,14 @@ def main() -> None:
     assert bank["part2_total_cards"] == 73, bank
     assert bank["part2_total_cards"] == bank["part2_expected_cards"], bank
 
+    practice_options = client.get("/api/practice-options")
+    assert practice_options.status_code == 200, practice_options.text
+    options = practice_options.json()
+    assert len(options["part1_topics"]) >= 30, options
+    assert len(options["cue_cards"]) == 73, options
+    chosen_topic = options["part1_topics"][0]
+    chosen_card = options["cue_cards"][0]["title"]
+
     oversized_audio = client.post(
         "/api/transcribe",
         files={"file": ("answer.wav", b"0" * (13 * 1024 * 1024), "audio/wav")},
@@ -84,18 +92,22 @@ def main() -> None:
         json={
             "practice_mode": True,
             "practice_type": "part2",
+            "cue_card_title": chosen_card,
             "answer_expansion_mode": True,
             "voice_playback_enabled": False,
         },
     )
     assert part2_start.status_code == 200, part2_start.text
-    assert part2_start.json()["session"]["phase"] == "part2_long", part2_start.text
+    part2_session = part2_start.json()["session"]
+    assert part2_session["phase"] == "part2_long", part2_start.text
+    assert part2_session["cue_card"]["title"] == chosen_card, part2_session
 
     part3_start = client.post(
         "/api/sessions",
         json={
             "practice_mode": True,
             "practice_type": "part3",
+            "cue_card_title": chosen_card,
             "answer_expansion_mode": True,
             "voice_playback_enabled": False,
         },
@@ -104,6 +116,20 @@ def main() -> None:
     part3_session = part3_start.json()["session"]
     assert part3_session["phase"] == "part3", part3_session
     assert part3_session["part3_questions"], part3_session
+    assert part3_session["cue_card"]["title"] == chosen_card, part3_session
+
+    topic_start = client.post(
+        "/api/sessions",
+        json={
+            "practice_mode": True,
+            "practice_type": "part1",
+            "part1_topic": chosen_topic,
+            "answer_expansion_mode": True,
+            "voice_playback_enabled": False,
+        },
+    )
+    assert topic_start.status_code == 200, topic_start.text
+    assert topic_start.json()["session"]["part1_topic"] == chosen_topic, topic_start.text
 
     too_long_answer = client.post(
         "/api/answer",
