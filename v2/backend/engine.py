@@ -424,15 +424,18 @@ def build_reply(
 
 def start_session(
     practice_mode: bool = True,
+    practice_type: str = "full",
     answer_expansion_mode: bool = True,
     voice_playback_enabled: bool = True,
 ) -> ExamSession:
     selected_topic = random.choice(PART1_SECONDARY_TOPICS)
+    cue_card = random.choice(ALL_CUE_CARDS)
     session = ExamSession(
         session_id=str(uuid.uuid4()),
         messages=[ChatMessage(role="assistant", content=FIRST_MESSAGE, phase="identity")],
         current_question=FIRST_MESSAGE,
         practice_mode=practice_mode,
+        practice_type=practice_type,
         answer_expansion_mode=answer_expansion_mode,
         voice_playback_enabled=voice_playback_enabled,
         part1_topic=selected_topic["name"],
@@ -441,8 +444,39 @@ def start_session(
             k=min(3, len(selected_topic["questions"])),
         ),
         part3_target_count=PRACTICE_PART3_QUESTION_COUNT if practice_mode else MOCK_PART3_QUESTION_COUNT,
-        cue_card=random.choice(ALL_CUE_CARDS),
+        cue_card=cue_card,
     )
+    if practice_type == "part2":
+        session.phase = "part2_long"
+        session.messages = [
+            ChatMessage(
+                role="assistant",
+                content=(
+                    "**Part 2 - Long Turn**\n\n"
+                    f"{cue_card['prompt']}\n\n"
+                    "You have one minute to prepare. Then speak for one to two minutes."
+                ),
+                phase="part2_long",
+            )
+        ]
+        session.current_question = cue_card["prompt"]
+    elif practice_type == "part3":
+        first_part3 = fallback_part3_question(session)
+        session.phase = "part3"
+        session.part3_questions = [first_part3]
+        session.part3_index = 0
+        session.messages = [
+            ChatMessage(
+                role="assistant",
+                content=(
+                    "**Part 3 - Discussion Practice**\n\n"
+                    f"Topic: {cue_card.get('title', 'IELTS discussion')}\n\n"
+                    f"{first_part3}"
+                ),
+                phase="part3",
+            )
+        ]
+        session.current_question = first_part3
     return session
 
 
@@ -492,6 +526,11 @@ def handle_part1_phase(session: ExamSession, answer: str) -> tuple[str, bool]:
         session.part1_index += 1
         return next_content, False
 
+    if session.practice_type == "part1":
+        session.phase = "complete"
+        session.test_active = False
+        return "Thank you. That is the end of Part 1 practice. Tap **Score** to view your report.", False
+
     session.phase = "part2_long"
     session.part2_words = 0
     session.part2_duration = 0.0
@@ -534,6 +573,11 @@ def handle_part2_long_phase(
 
 def handle_part2_followup_phase(session: ExamSession, answer: str) -> tuple[str, bool]:
     session.part2_answers.append(answer)
+    if session.practice_type == "part2":
+        session.phase = "complete"
+        session.test_active = False
+        return "Thank you. That is the end of Part 2 practice. Tap **Score** to view your report.", False
+
     session.part3_target_count = get_part3_question_count(session)
     session.part3_questions = []
     session.part3_history = []
