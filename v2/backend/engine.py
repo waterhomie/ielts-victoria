@@ -477,6 +477,97 @@ def save_answer_stats(
     )
 
 
+def handle_identity_phase(session: ExamSession) -> tuple[str, bool]:
+    session.phase = "part1"
+    session.part1_index = 0
+    return PART1_FIRST_QUESTION, False
+
+
+def handle_part1_phase(session: ExamSession, answer: str) -> tuple[str, bool]:
+    if not session.part1_queue:
+        session.part1_queue = choose_part1_followups(session, answer)
+    index = session.part1_index
+    if index < len(session.part1_queue):
+        next_content = session.part1_queue[index]
+        session.part1_index += 1
+        return next_content, False
+
+    session.phase = "part2_long"
+    session.part2_words = 0
+    session.part2_duration = 0.0
+    session.part2_audio_used = False
+    session.part2_extension_used = False
+    session.part2_answers = []
+    session.part3_questions = []
+    session.part3_history = []
+    card = session.cue_card
+    next_content = (
+        "**Part 2 - Long Turn**\n\n"
+        f"{card['prompt']}\n\n"
+        "You have one minute to prepare. Then speak for one to two minutes."
+    )
+    return next_content, True
+
+
+def handle_part2_long_phase(
+    session: ExamSession,
+    answer: str,
+    duration: float | None,
+) -> tuple[str, bool]:
+    session.part2_answers.append(answer)
+    session.part2_words += len(re.findall(r"[A-Za-z']+", answer))
+    if duration:
+        session.part2_duration += duration
+        session.part2_audio_used = True
+    needs_more = (
+        session.part2_duration < 50
+        if session.part2_audio_used
+        else session.part2_words < 80
+    )
+    if needs_more and not session.part2_extension_used:
+        session.part2_extension_used = True
+        return "Please continue - you still have time. Add more detail or give an example.", False
+
+    session.phase = "part2_followup"
+    return session.cue_card["follow_up"], False
+
+
+def handle_part2_followup_phase(session: ExamSession, answer: str) -> tuple[str, bool]:
+    session.part2_answers.append(answer)
+    session.part3_target_count = get_part3_question_count(session)
+    session.part3_questions = []
+    session.part3_history = []
+    first_part3 = generate_next_part3_question(session)
+    session.part3_questions.append(first_part3)
+    session.phase = "part3"
+    session.part3_index = 0
+    return f"**Part 3 - Discussion**\n\n{first_part3}", False
+
+
+def handle_part3_phase(
+    session: ExamSession,
+    answer: str,
+    previous_question: str,
+) -> tuple[str, bool]:
+    current_question = session.part3_questions[-1] if session.part3_questions else previous_question
+    if is_clarification_request(answer):
+        return rephrase_question(current_question), False
+
+    session.part3_history.append({"question": current_question, "answer": answer})
+    session.part3_index = len(session.part3_history)
+    if session.part3_index < session.part3_target_count:
+        next_question = generate_next_part3_question(session)
+        session.part3_questions.append(next_question)
+        return next_question, False
+
+    session.phase = "complete"
+    session.test_active = False
+    return (
+        "Thank you. That is the end of the speaking test. "
+        "Tap **Get Score** to view your report."
+    ), False
+
+
 def process_answer(
     session: ExamSession,
     answer: str,
@@ -503,85 +594,23 @@ def process_answer(
             include_upgrade,
         )
 
-    start_prep_timer = False
     if phase == "identity":
-        session.phase = "part1"
-        session.part1_index = 0
-        next_content = PART1_FIRST_QUESTION
+        next_content, start_prep_timer = handle_identity_phase(session)
 
     elif phase == "part1":
-        if not session.part1_queue:
-            session.part1_queue = choose_part1_followups(session, answer)
-        index = session.part1_index
-        if index < len(session.part1_queue):
-            next_content = session.part1_queue[index]
-            session.part1_index += 1
-        else:
-            session.phase = "part2_long"
-            session.part2_words = 0
-            session.part2_duration = 0.0
-            session.part2_audio_used = False
-            session.part2_extension_used = False
-            session.part2_answers = []
-            session.part3_questions = []
-            session.part3_history = []
-            start_prep_timer = True
-            card = session.cue_card
-            next_content = (
-                "**Part 2 - Long Turn**\n\n"
-                f"{card['prompt']}\n\n"
-                "You have one minute to prepare. Then speak for one to two minutes."
-            )
+        next_content, start_prep_timer = handle_part1_phase(session, answer)
 
     elif phase == "part2_long":
-        session.part2_answers.append(answer)
-        session.part2_words += len(re.findall(r"[A-Za-z']+", answer))
-        if duration:
-            session.part2_duration += duration
-            session.part2_audio_used = True
-        needs_more = (
-            session.part2_duration < 50
-            if session.part2_audio_used
-            else session.part2_words < 80
-        )
-        if needs_more and not session.part2_extension_used:
-            session.part2_extension_used = True
-            next_content = "Please continue - you still have time. Add more detail or give an example."
-        else:
-            session.phase = "part2_followup"
-            next_content = session.cue_card["follow_up"]
+        next_content, start_prep_timer = handle_part2_long_phase(session, answer, duration)
 
     elif phase == "part2_followup":
-        session.part2_answers.append(answer)
-        session.part3_target_count = get_part3_question_count(session)
-        session.part3_questions = []
-        session.part3_history = []
-        first_part3 = generate_next_part3_question(session)
-        session.part3_questions.append(first_part3)
-        session.phase = "part3"
-        session.part3_index = 0
-        next_content = f"**Part 3 - Discussion**\n\n{first_part3}"
+        next_content, start_prep_timer = handle_part2_followup_phase(session, answer)
 
     elif phase == "part3":
-        current_question = session.part3_questions[-1] if session.part3_questions else previous_question
-        if is_clarification_request(answer):
-            next_content = rephrase_question(current_question)
-        else:
-            session.part3_history.append({"question": current_question, "answer": answer})
-            session.part3_index = len(session.part3_history)
-            if session.part3_index < session.part3_target_count:
-                next_question = generate_next_part3_question(session)
-                session.part3_questions.append(next_question)
-                next_content = next_question
-            else:
-                session.phase = "complete"
-                session.test_active = False
-                next_content = (
-                    "Thank you. That is the end of the speaking test. "
-                    "Tap **Get Score** to view your report."
-                )
+        next_content, start_prep_timer = handle_part3_phase(session, answer, previous_question)
     else:
         next_content = "The test is complete. Tap **Get Score**."
+        start_prep_timer = False
 
     if session.phase == "part2_long" and next_content.startswith("Please continue"):
         session.current_question = session.cue_card["prompt"]
