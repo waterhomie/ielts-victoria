@@ -82,6 +82,8 @@ Last updated: 2026-06-29
   smoke-test coverage, so mobile users do not see internal provider errors.
 - Added single-channel V2 voice playback handling so restart, sound-off, or a new answer
   stops any previous prompt audio before continuing.
+- Added `-SkipInstall` support to the single-service V2 backend/frontend run scripts and
+  reused the local dependency path for faster developer restarts.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
