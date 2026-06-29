@@ -61,6 +61,8 @@ Last updated: 2026-06-29
   return a friendly retry message instead of raw transcription-provider errors.
 - Refined V2 mobile composer details: visible `review` control on narrow screens, smaller
   mobile title spacing, and verified fixed bottom input behavior in a phone-sized viewport.
+- Added V2 frontend backend-health guard and request timeout handling so deployment/API
+  configuration failures show clear recovery messages instead of hanging silently.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
