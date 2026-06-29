@@ -172,6 +172,7 @@ http://localhost:5173
 ## Verification already completed
 
 - Python compile check for the V2 backend modules.
+- PowerShell parse check for all V2 helper scripts.
 - Backend engine smoke test: start session -> identity answer -> Part 1 answer.
 - Local stack helper smoke test on alternate ports: backend health and frontend HTTP status.
 - Deployment smoke-check helper for backend/frontend URLs.
