@@ -145,6 +145,7 @@ http://localhost:5173
 ## Current V2 capabilities
 
 - Starts a new IELTS speaking session.
+- Supports Full, Part 1, Part 2, and Part 3 focused practice modes.
 - Displays messages in a real React chat panel.
 - Uses a fixed iOS-style bottom composer.
 - Includes mobile/PWA basics: viewport-fit, theme color, manifest, and lightweight app icon.
