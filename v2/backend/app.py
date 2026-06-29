@@ -135,6 +135,7 @@ def create_session(request_body: StartSessionRequest, request: Request) -> Start
     enforce_rate_limit(request)
     session = start_session(
         practice_mode=request_body.practice_mode,
+        practice_type=request_body.practice_type,
         answer_expansion_mode=request_body.answer_expansion_mode,
         voice_playback_enabled=request_body.voice_playback_enabled,
     )
