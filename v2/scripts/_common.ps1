@@ -46,6 +46,31 @@ function Resolve-V2Pnpm {
     throw "pnpm was not found. Install Node.js + pnpm, or set `$env:PNPM to pnpm.cmd."
 }
 
+function Add-V2PythonPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepoRoot
+    )
+
+    $parts = @()
+    $localDeps = Join-Path $RepoRoot "tmp\v2_backend_deps"
+    if (Test-Path -LiteralPath $localDeps) {
+        $parts += $localDeps
+    }
+    $parts += $RepoRoot
+
+    if ($env:PYTHONPATH) {
+        $existingParts = $env:PYTHONPATH -split ';' | Where-Object { $_ }
+        foreach ($existingPart in $existingParts) {
+            if (-not ($parts -contains $existingPart)) {
+                $parts += $existingPart
+            }
+        }
+    }
+
+    $env:PYTHONPATH = $parts -join ';'
+}
+
 function Invoke-V2Native {
     param(
         [Parameter(Mandatory = $true)]
