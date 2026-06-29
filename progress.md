@@ -66,6 +66,8 @@ Last updated: 2026-06-29
 - Added V2 local stack scripts to start/stop the React frontend and FastAPI backend together
   with logs, PID tracking, port checks, and health/status verification.
 - Added V2 final-report and transcript text downloads from the React report screen.
+- Added V2 mobile/PWA basics: app manifest, theme metadata, iOS web-app metadata, and
+  lightweight SVG app icon.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
