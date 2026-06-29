@@ -1,13 +1,29 @@
 const API_BASE = import.meta.env.VITE_API_BASE || "";
+const DEFAULT_TIMEOUT_MS = 30000;
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
-      ...(options.headers || {}),
-    },
-  });
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, ...fetchOptions } = options;
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  let response;
+
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...fetchOptions,
+      signal: fetchOptions.signal || controller.signal,
+      headers: {
+        ...(fetchOptions.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+        ...(fetchOptions.headers || {}),
+      },
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("Request timed out. Victoria's server may be waking up; please try again.");
+    }
+    throw new Error("Victoria's server is not reachable. Please check the backend service and VITE_API_BASE.");
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     let message = `${response.status} ${response.statusText}`;
@@ -25,6 +41,11 @@ async function request(path, options = {}) {
   }
 
   return response;
+}
+
+export async function healthCheck() {
+  const response = await request("/api/health", { timeoutMs: 8000 });
+  return response.json();
 }
 
 export async function startSession(settings) {
