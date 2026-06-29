@@ -49,6 +49,9 @@ def main() -> None:
     finally:
         app_module.transcribe_audio = original_transcribe_audio
 
+    too_long_tts = client.post("/api/tts", json={"text": "a" * (app_module.MAX_TTS_CHARS + 1)})
+    assert too_long_tts.status_code == 413, too_long_tts.text
+
     original_synthesize_speech = app_module.synthesize_speech
     try:
         def broken_synthesize_speech(_text: str) -> bytes:
