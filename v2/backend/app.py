@@ -4,7 +4,14 @@ from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
-from .engine import build_report, process_answer, start_session, synthesize_speech, transcribe_audio
+from .engine import (
+    build_report,
+    get_question_bank_summary,
+    process_answer,
+    start_session,
+    synthesize_speech,
+    transcribe_audio,
+)
 from .schemas import (
     AnswerRequest,
     AnswerResponse,
@@ -35,6 +42,11 @@ app.add_middleware(
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "app": "examiner-victoria-v2"}
+
+
+@app.get("/api/question-bank")
+def question_bank() -> dict[str, int]:
+    return get_question_bank_summary()
 
 
 @app.post("/api/sessions", response_model=StartSessionResponse)
