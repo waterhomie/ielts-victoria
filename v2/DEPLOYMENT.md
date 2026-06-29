@@ -58,6 +58,18 @@ Before sharing V2 publicly:
 4. Test iPhone Safari and WeChat in-app browser microphone behavior.
 5. Add a fallback typed-answer path when microphone permission is denied.
 
+## Deployment smoke check
+
+After deploying both services, run:
+
+```powershell
+.\v2\scripts\check_deployed_v2.ps1 `
+  -BackendUrl "https://your-backend-domain.com" `
+  -FrontendUrl "https://your-frontend-domain.com"
+```
+
+This checks backend health, question-bank counts, and frontend HTML availability.
+
 ## Current deployment recommendation
 
 Keep Streamlit as the public stable version for now.
