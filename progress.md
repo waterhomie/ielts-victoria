@@ -104,6 +104,8 @@ Last updated: 2026-06-29
   raw candidate answers and timing data to identify recurring weaknesses and the next-session focus.
 - Refactored the V2 answer state machine so identity, Part 1, Part 2 long-turn,
   Part 2 follow-up, and Part 3 logic now live in smaller phase handlers while preserving behavior.
+- Added V2 focused practice modes for Full, Part 1, Part 2, and Part 3, with
+  frontend mode selection, backend session tracking, and focused-mode start phases.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
@@ -222,13 +224,13 @@ It is not yet ready for:
 
 Recommended next task:
 
-> Add focused practice modes for Part 1 only, Part 2 only, and Part 3 only.
+> Add topic/category selection for focused practice.
 
 Acceptance criteria:
 
-1. The frontend lets the learner choose full mock, Part 1, Part 2, or Part 3 practice before starting.
-2. The backend session tracks the selected practice mode.
-3. Each focused mode starts at the appropriate phase with a clear stage label.
+1. The frontend lets the learner choose at least one Part 1 topic or Part 2 category.
+2. The backend uses the selected topic/category when starting a new session.
+3. Random mode remains available as the default.
 4. `python -m py_compile` passes.
 5. `python validate_question_bank.py` passes.
 6. Frontend production build passes.
