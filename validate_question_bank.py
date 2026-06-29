@@ -14,6 +14,7 @@ from question_bank import (
 )
 
 APP_BUILT_IN_CUE_CARD_COUNT = 3
+APP_BUILT_IN_PART3_REFERENCE_COUNT = 12
 
 
 def require(condition, message):
@@ -63,7 +64,10 @@ def main():
         "Part 2 app total cue cards: "
         f"{len(EXTRA_CUE_CARDS) + APP_BUILT_IN_CUE_CARD_COUNT}"
     )
-    print(f"Part 3 reference questions: {sum(len(card['part3']) for card in EXTRA_CUE_CARDS)}")
+    print(
+        "Part 3 reference questions: "
+        f"{sum(len(card['part3']) for card in EXTRA_CUE_CARDS) + APP_BUILT_IN_PART3_REFERENCE_COUNT}"
+    )
 
 
 if __name__ == "__main__":
