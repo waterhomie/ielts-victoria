@@ -180,7 +180,7 @@ http://localhost:5173
 - PowerShell parse check for all V2 helper scripts.
 - Backend engine smoke test: start session -> identity answer -> Part 1 answer.
 - Local stack helper smoke test on alternate ports: backend health and frontend HTTP status.
-- Deployment smoke-check helper for backend/frontend URLs.
+- Deployment smoke-check helper for backend/frontend URLs, CORS, question bank, and core API flow.
 - FastAPI route smoke test with `python -m v2.backend.smoke_test`:
   `/api/health`, `/api/question-bank`, `/api/sessions`, `/api/answer`,
   report fallback behavior, oversized audio rejection for `/api/transcribe`,
