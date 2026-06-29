@@ -108,6 +108,8 @@ Last updated: 2026-06-29
   frontend mode selection, backend session tracking, and focused-mode start phases.
 - Added selectable Part 1 topics and Part 2/3 cue cards for focused practice, powered by
   a new `/api/practice-options` endpoint while keeping random selection as the default.
+- Added a V2 practice-record export that combines session metadata, selected topic/cue card,
+  timing/WPM stats, question-by-question answers, the full transcript, and any generated report.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
@@ -226,13 +228,13 @@ It is not yet ready for:
 
 Recommended next task:
 
-> Add practice-history export format.
+> Add report markdown formatting improvements.
 
 Acceptance criteria:
 
-1. Export combines transcript, report, session learning summary, and timing stats into one file.
-2. The export is based only on current-session data.
-3. It works before and after completing the full mock test.
+1. Report headings, lists, and quoted improved answers render cleanly in the React UI.
+2. Markdown-like report text remains readable in downloaded plain text.
+3. The report screen stays compact on mobile.
 4. `python -m py_compile` passes.
 5. `python validate_question_bank.py` passes.
 6. Frontend production build passes.
