@@ -57,6 +57,10 @@ Last updated: 2026-06-29
   reset after each answer, stable letter avatars, and an app-like internal chat scroll panel.
 - Added V2 deployment hardening: environment-driven CORS allowlist, audio upload size limit,
   oversized-audio smoke-test coverage, and safer mobile recorder cleanup on page hide.
+- Added V2 short/empty-audio guards in both frontend and backend so mobile recording glitches
+  return a friendly retry message instead of raw transcription-provider errors.
+- Refined V2 mobile composer details: visible `review` control on narrow screens, smaller
+  mobile title spacing, and verified fixed bottom input behavior in a phone-sized viewport.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
