@@ -92,6 +92,8 @@ Last updated: 2026-06-29
   the entire mock test; old reports clear automatically when the learner continues answering.
 - Added backend payload-size guards for oversized answers and oversized client sessions to
   reduce accidental public-deployment cost and abuse risk.
+- Added a V2 `MAX_TTS_CHARS` guard so oversized voice-playback requests are rejected
+  before reaching the TTS provider.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
