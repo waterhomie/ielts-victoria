@@ -1,5 +1,6 @@
 param(
-    [int]$Port = 5173
+    [int]$Port = 5173,
+    [switch]$SkipInstall
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,5 +15,7 @@ Write-Host "Examiner Victoria V2 frontend" -ForegroundColor Cyan
 Write-Host "Frontend: $frontendRoot"
 
 Set-Location $frontendRoot
-Invoke-V2Native $pnpm install
+if (-not $SkipInstall) {
+    Invoke-V2Native $pnpm install
+}
 Invoke-V2Native $pnpm run dev -- --port $Port
