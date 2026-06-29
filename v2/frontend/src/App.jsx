@@ -106,6 +106,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [report, setReport] = useState("");
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const chatPanelRef = useRef(null);
   const bottomRef = useRef(null);
   const recorderRef = useRef(null);
   const startedAtRef = useRef(0);
@@ -135,7 +136,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const panel = chatPanelRef.current;
+    if (panel) {
+      panel.scrollTo({ top: panel.scrollHeight, behavior: "smooth" });
+    } else {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
   }, [messages.length, busy, report]);
 
   useEffect(() => {
@@ -301,7 +307,7 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="chat-panel">
+      <main className="chat-panel" ref={chatPanelRef}>
         {messages.map((message, index) => (
           <MessageBubble key={`${message.role}-${index}`} message={message} />
         ))}
