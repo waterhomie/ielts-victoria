@@ -94,6 +94,8 @@ Last updated: 2026-06-29
   reduce accidental public-deployment cost and abuse risk.
 - Added a V2 `MAX_TTS_CHARS` guard so oversized voice-playback requests are rejected
   before reaching the TTS provider.
+- Refined V2 frontend error mapping so rate-limit and oversized-payload messages remain
+  specific instead of being mistaken for generic transcription failures.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
