@@ -6,6 +6,13 @@ Base URL in local development:
 http://localhost:8000
 ```
 
+Production backend environment variables that affect this contract:
+
+```text
+CORS_ORIGINS=https://your-frontend-domain.com
+MAX_AUDIO_UPLOAD_MB=12
+```
+
 ## GET /api/health
 
 Checks backend availability.
@@ -138,6 +145,9 @@ Response:
   "text": "I'm a student."
 }
 ```
+
+If the uploaded audio is larger than `MAX_AUDIO_UPLOAD_MB`, the backend returns
+`413` with a short user-safe error message.
 
 ## POST /api/tts
 
