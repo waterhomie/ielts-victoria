@@ -159,7 +159,7 @@ http://localhost:5173
 - Can request a current scoring report from the backend before or after completing the full test.
 - Falls back to a rule-based report if the scoring model is temporarily unavailable.
 - Adds a rule-based session learning summary to every report using only raw answers and timing data.
-- Can download the final report and full transcript as plain text files.
+- Can download the final report, full transcript, and a combined practice record as plain text files.
 - Keeps voice playback single-channel so restarting or answering stops any previous prompt audio.
 - Checks backend health on startup and turns timeout/backend failures into clear UI errors.
 - Includes a simple backend rate limit for public-deployment safety.
