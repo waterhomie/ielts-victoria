@@ -151,6 +151,7 @@ export default function App() {
   const chatPanelRef = useRef(null);
   const bottomRef = useRef(null);
   const recorderRef = useRef(null);
+  const audioRef = useRef(null);
   const startedAtRef = useRef(0);
 
   const messages = session?.messages || [];
@@ -205,6 +206,7 @@ export default function App() {
     }
     return () => {
       recorderRef.current?.cleanup?.();
+      stopCurrentAudio();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -252,15 +254,25 @@ export default function App() {
     function cleanupRecorder() {
       recorderRef.current?.cleanup?.();
       recorderRef.current = null;
+      stopCurrentAudio();
     }
 
     window.addEventListener("pagehide", cleanupRecorder);
     return () => window.removeEventListener("pagehide", cleanupRecorder);
   }, []);
 
+  function stopCurrentAudio() {
+    if (!audioRef.current) return;
+    audioRef.current.pause();
+    audioRef.current.removeAttribute("src");
+    audioRef.current.load();
+    audioRef.current = null;
+  }
+
   async function createFreshSession() {
     recorderRef.current?.cleanup?.();
     recorderRef.current = null;
+    stopCurrentAudio();
     setSession(null);
     setRecording(false);
     setElapsed(0);
@@ -282,15 +294,40 @@ export default function App() {
 
   async function playSpeech(text) {
     if (!audioEnabled || !text) return;
+    stopCurrentAudio();
+    let url = "";
     try {
       const blob = await synthesizeSpeech(text);
-      const url = URL.createObjectURL(blob);
+      url = URL.createObjectURL(blob);
       const audio = new Audio(url);
-      audio.addEventListener("ended", () => URL.revokeObjectURL(url), { once: true });
+      audioRef.current = audio;
+      audio.addEventListener(
+        "ended",
+        () => {
+          URL.revokeObjectURL(url);
+          if (audioRef.current === audio) {
+            audioRef.current = null;
+          }
+        },
+        { once: true },
+      );
       await audio.play();
     } catch (_) {
+      if (url) URL.revokeObjectURL(url);
+      if (audioRef.current) {
+        audioRef.current = null;
+      }
       // Browsers may block autoplay; text still remains the source of truth.
     }
+  }
+
+  function toggleAudioEnabled() {
+    setAudioEnabled((value) => {
+      if (value) {
+        stopCurrentAudio();
+      }
+      return !value;
+    });
   }
 
   function resetComposerAfterAnswer() {
@@ -304,6 +341,7 @@ export default function App() {
     if (!cleaned || !session) return;
     setError("");
     setBusy("thinking");
+    stopCurrentAudio();
     resetComposerAfterAnswer();
     try {
       const data = await sendAnswer({
@@ -409,7 +447,7 @@ export default function App() {
           <h1>Examiner Victoria</h1>
         </div>
         <div className="top-actions">
-          <button className="ghost-button" type="button" onClick={() => setAudioEnabled((v) => !v)}>
+          <button className="ghost-button" type="button" onClick={toggleAudioEnabled}>
             {audioEnabled ? "Sound on" : "Sound off"}
           </button>
           <button className="ghost-button" type="button" onClick={createFreshSession}>
