@@ -66,6 +66,7 @@ RATE_LIMIT_WINDOW_SECONDS = 60
 REQUEST_LOG: dict[str, deque[float]] = defaultdict(deque)
 MAX_ANSWER_CHARS = get_positive_int_env("MAX_ANSWER_CHARS", 4000)
 MAX_SESSION_MESSAGES = get_positive_int_env("MAX_SESSION_MESSAGES", 120)
+MAX_TTS_CHARS = get_positive_int_env("MAX_TTS_CHARS", 1200)
 TRANSCRIPTION_FAILURE_MESSAGE = (
     "Audio transcription is temporarily unavailable. Please switch to Text or try again."
 )
@@ -193,10 +194,16 @@ async def transcribe(
 @app.post("/api/tts")
 def tts(request_body: TTSRequest, request: Request) -> Response:
     enforce_rate_limit(request)
-    if not request_body.text.strip():
+    text = request_body.text.strip()
+    if not text:
         raise HTTPException(status_code=400, detail="Text cannot be empty.")
+    if len(text) > MAX_TTS_CHARS:
+        raise HTTPException(
+            status_code=413,
+            detail="Voice playback text is too long. Please continue with the visible text.",
+        )
     try:
-        audio = synthesize_speech(request_body.text)
+        audio = synthesize_speech(text)
     except Exception as error:
         raise HTTPException(status_code=502, detail=TTS_FAILURE_MESSAGE) from error
     return Response(content=audio, media_type="audio/mpeg")
