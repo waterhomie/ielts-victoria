@@ -156,6 +156,7 @@ http://localhost:5173
 - Shows a refresh-safe Part 2 preparation countdown when the long-turn cue card starts.
 - Can request a current scoring report from the backend before or after completing the full test.
 - Falls back to a rule-based report if the scoring model is temporarily unavailable.
+- Adds a rule-based session learning summary to every report using only raw answers and timing data.
 - Can download the final report and full transcript as plain text files.
 - Keeps voice playback single-channel so restarting or answering stops any previous prompt audio.
 - Checks backend health on startup and turns timeout/backend failures into clear UI errors.
@@ -184,7 +185,7 @@ http://localhost:5173
 - FastAPI route smoke test with `python -m v2.backend.smoke_test`:
   `/api/health`, `/api/question-bank`, `/api/sessions`, `/api/answer`,
   report fallback behavior, oversized audio rejection for `/api/transcribe`,
-  and user-safe 502 messages for transcription/TTS provider failures.
+  user-safe 502 messages for transcription/TTS provider failures, and report learning-summary output.
 - Frontend dependency install with pnpm.
 - Frontend production build with Vite.
 - Question-bank validation from the existing app.
