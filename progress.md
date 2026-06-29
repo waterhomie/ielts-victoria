@@ -84,6 +84,8 @@ Last updated: 2026-06-29
   stops any previous prompt audio before continuing.
 - Added `-SkipInstall` support to the single-service V2 backend/frontend run scripts and
   reused the local dependency path for faster developer restarts.
+- Added PowerShell helper-script parse checks to the V2 validation script so script syntax
+  regressions are caught with the regular local checks.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
