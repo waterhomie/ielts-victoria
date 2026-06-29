@@ -52,6 +52,21 @@ Response:
 }
 ```
 
+## GET /api/practice-options
+
+Returns selectable Part 1 topics and Part 2/3 cue-card titles for focused practice.
+
+Response:
+
+```json
+{
+  "part1_topics": ["work or studies", "..."],
+  "cue_cards": [
+    { "title": "an interesting building" }
+  ]
+}
+```
+
 ## POST /api/sessions
 
 Starts a new IELTS speaking session.
@@ -62,12 +77,15 @@ Request:
 {
   "practice_mode": true,
   "practice_type": "full",
+  "part1_topic": null,
+  "cue_card_title": null,
   "answer_expansion_mode": true,
   "voice_playback_enabled": true
 }
 ```
 
 `practice_type` can be `full`, `part1`, `part2`, or `part3`.
+`part1_topic` and `cue_card_title` are optional; omit or set to `null` for random selection.
 
 Response:
 
