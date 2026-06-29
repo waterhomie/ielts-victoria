@@ -494,7 +494,7 @@ export default function App() {
           </button>
           {canScoreNow ? (
             <button className="ghost-button" type="button" onClick={requestReport}>
-              Score now
+              Score
             </button>
           ) : null}
           <button className="ghost-button" type="button" onClick={createFreshSession}>
