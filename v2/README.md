@@ -135,6 +135,7 @@ http://localhost:5173
 - Sends answers to the Python state machine.
 - Supports dynamic Part 3 follow-up generation through the backend.
 - Can request final scoring report from the backend.
+- Can download the final report and full transcript as plain text files.
 - Checks backend health on startup and turns timeout/backend failures into clear UI errors.
 
 ## Still to finish before replacing Streamlit
