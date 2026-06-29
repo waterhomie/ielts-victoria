@@ -104,6 +104,11 @@ async def transcribe(
     content_type: str | None = Header(default=None),
 ) -> TranscriptionResponse:
     audio_bytes = await file.read()
+    if len(audio_bytes) < 1024:
+        raise HTTPException(
+            status_code=400,
+            detail="Recording is too short or empty. Please tap again and answer in a complete sentence.",
+        )
     if len(audio_bytes) > MAX_AUDIO_UPLOAD_BYTES:
         raise HTTPException(
             status_code=413,
