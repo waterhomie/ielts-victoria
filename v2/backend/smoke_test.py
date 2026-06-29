@@ -3,6 +3,8 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from v2.backend.app import app
+from v2.backend.engine import build_fallback_report
+from v2.backend.schemas import ExamSession
 
 
 def main() -> None:
@@ -66,6 +68,16 @@ def main() -> None:
     assert answer2.status_code == 200, answer2.text
     session = answer2.json()["session"]
     assert session["messages"][-1]["role"] == "assistant"
+
+    report = client.post("/api/report", json={"session": session})
+    assert report.status_code == 200, report.text
+    report_text = report.json()["report"]
+    assert "Report generation failed" not in report_text, report_text
+    assert len(report_text) > 80, report_text
+
+    fallback_text = build_fallback_report(ExamSession.model_validate(session))
+    assert "rule-based fallback" in fallback_text, fallback_text
+    assert "Next-session practice tasks" in fallback_text, fallback_text
 
     print("V2 FastAPI smoke test passed")
     print(f"phase: {session['phase']}")
