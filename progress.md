@@ -90,6 +90,8 @@ Last updated: 2026-06-29
   and preserved by the frontend's local session persistence.
 - Added a V2 `Score` action so learners can generate a current report before completing
   the entire mock test; old reports clear automatically when the learner continues answering.
+- Added backend payload-size guards for oversized answers and oversized client sessions to
+  reduce accidental public-deployment cost and abuse risk.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
