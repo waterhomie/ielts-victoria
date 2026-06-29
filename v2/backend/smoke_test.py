@@ -32,6 +32,37 @@ def main() -> None:
     )
     assert tiny_audio.status_code == 400, tiny_audio.text
 
+    original_transcribe_audio = app_module.transcribe_audio
+    try:
+        def broken_transcribe_audio(_audio_bytes: bytes, _mime_type: str) -> str:
+            raise RuntimeError("provider duration parse failed: internal detail")
+
+        app_module.transcribe_audio = broken_transcribe_audio
+        failed_audio = client.post(
+            "/api/transcribe",
+            files={"file": ("answer.wav", b"0" * 4096, "audio/wav")},
+        )
+        assert failed_audio.status_code == 502, failed_audio.text
+        failed_detail = failed_audio.json()["detail"]
+        assert "internal detail" not in failed_detail, failed_detail
+        assert "temporarily unavailable" in failed_detail, failed_detail
+    finally:
+        app_module.transcribe_audio = original_transcribe_audio
+
+    original_synthesize_speech = app_module.synthesize_speech
+    try:
+        def broken_synthesize_speech(_text: str) -> bytes:
+            raise RuntimeError("provider voice error: internal detail")
+
+        app_module.synthesize_speech = broken_synthesize_speech
+        failed_tts = client.post("/api/tts", json={"text": "Hello"})
+        assert failed_tts.status_code == 502, failed_tts.text
+        failed_tts_detail = failed_tts.json()["detail"]
+        assert "internal detail" not in failed_tts_detail, failed_tts_detail
+        assert "temporarily unavailable" in failed_tts_detail, failed_tts_detail
+    finally:
+        app_module.synthesize_speech = original_synthesize_speech
+
     start = client.post(
         "/api/sessions",
         json={
