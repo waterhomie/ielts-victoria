@@ -75,6 +75,22 @@ def main() -> None:
     session = start.json()["session"]
     assert session["phase"] == "identity"
 
+    too_long_answer = client.post(
+        "/api/answer",
+        json={
+            "session": session,
+            "answer": "a" * (app_module.MAX_ANSWER_CHARS + 1),
+            "source": "text",
+            "duration": None,
+        },
+    )
+    assert too_long_answer.status_code == 413, too_long_answer.text
+
+    too_large_session = dict(session)
+    too_large_session["messages"] = session["messages"] * (app_module.MAX_SESSION_MESSAGES + 1)
+    too_large_report = client.post("/api/report", json={"session": too_large_session})
+    assert too_large_report.status_code == 413, too_large_report.text
+
     answer1 = client.post(
         "/api/answer",
         json={
