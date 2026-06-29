@@ -56,6 +56,10 @@ MAX_AUDIO_UPLOAD_BYTES = get_max_audio_upload_bytes()
 RATE_LIMIT_PER_MINUTE = get_rate_limit_per_minute()
 RATE_LIMIT_WINDOW_SECONDS = 60
 REQUEST_LOG: dict[str, deque[float]] = defaultdict(deque)
+TRANSCRIPTION_FAILURE_MESSAGE = (
+    "Audio transcription is temporarily unavailable. Please switch to Text or try again."
+)
+TTS_FAILURE_MESSAGE = "Voice playback is temporarily unavailable. You can continue with text."
 
 
 def enforce_rate_limit(request: Request) -> None:
@@ -157,7 +161,7 @@ async def transcribe(
     try:
         text = transcribe_audio(audio_bytes, mime_type)
     except Exception as error:
-        raise HTTPException(status_code=502, detail=f"Transcription failed: {error}") from error
+        raise HTTPException(status_code=502, detail=TRANSCRIPTION_FAILURE_MESSAGE) from error
     return TranscriptionResponse(text=text)
 
 
@@ -169,7 +173,7 @@ def tts(request_body: TTSRequest, request: Request) -> Response:
     try:
         audio = synthesize_speech(request_body.text)
     except Exception as error:
-        raise HTTPException(status_code=502, detail=f"TTS failed: {error}") from error
+        raise HTTPException(status_code=502, detail=TTS_FAILURE_MESSAGE) from error
     return Response(content=audio, media_type="audio/mpeg")
 
 
