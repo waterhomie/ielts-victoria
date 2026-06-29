@@ -147,6 +147,7 @@ http://localhost:5173
 - Can request final scoring report from the backend.
 - Falls back to a rule-based report if the scoring model is temporarily unavailable.
 - Can download the final report and full transcript as plain text files.
+- Keeps voice playback single-channel so restarting or answering stops any previous prompt audio.
 - Checks backend health on startup and turns timeout/backend failures into clear UI errors.
 - Includes a simple backend rate limit for public-deployment safety.
 - Saves the current practice session locally on a best-effort basis so a refresh can restore the conversation.
