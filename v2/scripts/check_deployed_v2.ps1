@@ -57,6 +57,15 @@ if ($bank.part3_reference_questions -lt 300) {
 }
 Write-Host "Question bank: $($bank.part1_total_questions) Part 1 questions, $($bank.part2_total_cards) Part 2 cards, $($bank.part3_reference_questions) Part 3 references" -ForegroundColor Green
 
+$options = Invoke-RestMethod -Uri "$backend/api/practice-options" -TimeoutSec 20
+if ($options.part1_topics.Count -lt 30) {
+    throw "Unexpected Part 1 option count: $($options.part1_topics.Count)"
+}
+if ($options.cue_cards.Count -ne 73) {
+    throw "Unexpected cue-card option count: $($options.cue_cards.Count)"
+}
+Write-Host "Practice options: $($options.part1_topics.Count) Part 1 topics, $($options.cue_cards.Count) cue cards" -ForegroundColor Green
+
 $sessionResponse = Invoke-RestMethod `
     -Method Post `
     -Uri "$backend/api/sessions" `
