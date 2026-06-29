@@ -23,6 +23,12 @@ def main() -> None:
     )
     assert oversized_audio.status_code == 413, oversized_audio.text
 
+    tiny_audio = client.post(
+        "/api/transcribe",
+        files={"file": ("answer.wav", b"RIFF", "audio/wav")},
+    )
+    assert tiny_audio.status_code == 400, tiny_audio.text
+
     start = client.post(
         "/api/sessions",
         json={
