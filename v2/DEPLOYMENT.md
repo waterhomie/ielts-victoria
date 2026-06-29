@@ -39,6 +39,8 @@ API_KEY=sk-...
 BASE_URL=https://api.gptsapi.net/v1
 MODEL=gpt-5.4-mini
 TRANSCRIPTION_MODEL=whisper-1
+CORS_ORIGINS=https://your-frontend-domain.com
+MAX_AUDIO_UPLOAD_MB=12
 ```
 
 ## Option B: one server serving both frontend and backend
@@ -50,7 +52,7 @@ separate is cleaner while the UI is changing quickly.
 
 Before sharing V2 publicly:
 
-1. Replace backend `allow_origins=["*"]` with the real frontend domain.
+1. Set backend `CORS_ORIGINS` to the real frontend domain instead of `*`.
 2. Add basic rate limiting to transcription and model endpoints.
 3. Keep API keys only in backend environment variables.
 4. Test iPhone Safari and WeChat in-app browser microphone behavior.
@@ -67,4 +69,3 @@ Use V2 privately until:
 - the frontend is deployed,
 - CORS is restricted,
 - and at least one full IELTS flow reaches the final report.
-
