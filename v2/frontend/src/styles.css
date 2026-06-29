@@ -179,6 +179,35 @@ h1 {
   color: #1d1d1f;
 }
 
+.topic-select {
+  width: min(520px, 100%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.topic-select span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.topic-select select {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+}
+
 .progress-track {
   height: 7px;
   margin-top: 14px;
@@ -501,6 +530,18 @@ button:not(:disabled):active {
 
   .practice-select span {
     display: none;
+  }
+
+  .topic-select {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+    padding: 9px 10px;
+  }
+
+  .topic-select select {
+    width: 100%;
+    font-size: 13px;
   }
 
   h1 {
