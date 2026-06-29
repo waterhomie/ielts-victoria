@@ -7,6 +7,12 @@ const DEFAULT_SETTINGS = {
   answer_expansion_mode: true,
   voice_playback_enabled: true,
 };
+const PRACTICE_TYPES = [
+  { value: "full", label: "Full" },
+  { value: "part1", label: "Part 1" },
+  { value: "part2", label: "Part 2" },
+  { value: "part3", label: "Part 3" },
+];
 const STORAGE_KEY = "examiner-victoria-v2-state";
 
 function phaseLabel(phase) {
@@ -153,6 +159,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [report, setReport] = useState("");
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [practiceType, setPracticeType] = useState("full");
   const [storageReady, setStorageReady] = useState(false);
   const [prepEndsAt, setPrepEndsAt] = useState(null);
   const [clockTick, setClockTick] = useState(Date.now());
@@ -201,6 +208,7 @@ export default function App() {
         setSession(saved.session);
         setReport(saved.report || "");
         setAudioEnabled(saved.audioEnabled ?? true);
+        setPracticeType(saved.practiceType || saved.session.practice_type || "full");
         setReviewBeforeSend(Boolean(saved.reviewBeforeSend));
         if (saved.prepEndsAt && saved.prepEndsAt > Date.now()) {
           setPrepEndsAt(saved.prepEndsAt);
@@ -240,6 +248,7 @@ export default function App() {
         session,
         report,
         audioEnabled,
+        practiceType,
         reviewBeforeSend,
         prepEndsAt,
       };
@@ -248,7 +257,7 @@ export default function App() {
       // Storage can be blocked in private mode or embedded mobile WebViews.
       // The app should still work; it will just skip refresh recovery.
     }
-  }, [audioEnabled, prepEndsAt, report, reviewBeforeSend, session, storageReady]);
+  }, [audioEnabled, practiceType, prepEndsAt, report, reviewBeforeSend, session, storageReady]);
 
   useEffect(() => {
     const panel = chatPanelRef.current;
@@ -303,10 +312,11 @@ export default function App() {
     audioUrlRef.current = "";
   }
 
-  async function createFreshSession() {
+  async function createFreshSession(nextPracticeType = practiceType) {
     recorderRef.current?.cleanup?.();
     recorderRef.current = null;
     stopCurrentAudio();
+    setPracticeType(nextPracticeType);
     setSession(null);
     setRecording(false);
     setElapsed(0);
@@ -317,9 +327,17 @@ export default function App() {
     setBusy("starting");
     try {
       await healthCheck();
-      const data = await startSession(DEFAULT_SETTINGS);
+      const data = await startSession({
+        ...DEFAULT_SETTINGS,
+        practice_type: nextPracticeType,
+      });
       setSession(data.session);
       setAudioEnabled(data.session.voice_playback_enabled);
+      if (data.session.phase === "part2_long") {
+        const endsAt = Date.now() + 60_000;
+        setClockTick(Date.now());
+        setPrepEndsAt(endsAt);
+      }
     } catch (err) {
       setError(friendlyError(err, "Failed to start session."));
     } finally {
@@ -368,6 +386,12 @@ export default function App() {
       }
       return !value;
     });
+  }
+
+  function changePracticeType(event) {
+    const nextPracticeType = event.target.value;
+    if (nextPracticeType === practiceType && session) return;
+    createFreshSession(nextPracticeType);
   }
 
   function resetComposerAfterAnswer() {
@@ -495,6 +519,16 @@ export default function App() {
           <h1>Examiner Victoria</h1>
         </div>
         <div className="top-actions">
+          <label className="practice-select">
+            <span>Mode</span>
+            <select value={practiceType} onChange={changePracticeType} disabled={Boolean(busy) || recording}>
+              {PRACTICE_TYPES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <button className="ghost-button" type="button" onClick={toggleAudioEnabled}>
             {audioEnabled ? "Sound on" : "Sound off"}
           </button>
