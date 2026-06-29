@@ -55,6 +55,8 @@ Last updated: 2026-06-29
 - Added V2 `/api/question-bank` sanity endpoint and smoke-test checks for question-bank counts.
 - Improved V2 mobile composer behavior with friendlier transcription errors, cleaner recorder
   reset after each answer, stable letter avatars, and an app-like internal chat scroll panel.
+- Added V2 deployment hardening: environment-driven CORS allowlist, audio upload size limit,
+  oversized-audio smoke-test coverage, and safer mobile recorder cleanup on page hide.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
