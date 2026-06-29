@@ -121,6 +121,7 @@ http://localhost:5173
 - Sends answers to the Python state machine.
 - Supports dynamic Part 3 follow-up generation through the backend.
 - Can request final scoring report from the backend.
+- Checks backend health on startup and turns timeout/backend failures into clear UI errors.
 
 ## Still to finish before replacing Streamlit
 
@@ -142,3 +143,4 @@ http://localhost:5173
 - Frontend dependency install with pnpm.
 - Frontend production build with Vite.
 - Question-bank validation from the existing app.
+- Browser startup check against the local V2 frontend after backend health guard changes.
