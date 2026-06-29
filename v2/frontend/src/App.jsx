@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildReport, sendAnswer, startSession, synthesizeSpeech, transcribeAudio } from "./api.js";
+import { buildReport, healthCheck, sendAnswer, startSession, synthesizeSpeech, transcribeAudio } from "./api.js";
 import { WavRecorder } from "./recorder.js";
 
 const DEFAULT_SETTINGS = {
@@ -45,6 +45,12 @@ function friendlyError(err, fallback) {
   }
   if (/transcription|audio|whisper|duration|500|502/i.test(message)) {
     return "Audio transcription is temporarily unavailable. You can switch to Text and type your answer.";
+  }
+  if (/not reachable|VITE_API_BASE|backend service/i.test(message)) {
+    return "Victoria's server is not reachable. Please try again in a moment, or check whether the backend is running.";
+  }
+  if (/timed out|waking up/i.test(message)) {
+    return "Victoria's server is taking too long to respond. It may be waking up, so please try again in a moment.";
   }
   if (/network|failed to fetch|load failed/i.test(message)) {
     return "Network connection is unstable. Please try again in a moment.";
@@ -181,6 +187,7 @@ export default function App() {
     setDraft("");
     setBusy("starting");
     try {
+      await healthCheck();
       const data = await startSession(DEFAULT_SETTINGS);
       setSession(data.session);
       setAudioEnabled(data.session.voice_playback_enabled);
