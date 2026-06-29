@@ -80,7 +80,7 @@ if (Test-Path -LiteralPath '$nodeBin') {
     `$env:PATH = '$nodeBin;' + `$env:PATH
 }
 Set-Location -LiteralPath '$frontendRoot'
-& '$pnpm' run dev -- --host 127.0.0.1 --port $FrontendPort
+& '$pnpm' exec vite --host 127.0.0.1 --port $FrontendPort
 "@
 
 $frontendProcess = Start-Process `
