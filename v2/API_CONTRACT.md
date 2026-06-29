@@ -12,6 +12,8 @@ Production backend environment variables that affect this contract:
 CORS_ORIGINS=https://your-frontend-domain.com
 MAX_AUDIO_UPLOAD_MB=12
 RATE_LIMIT_PER_MINUTE=120
+MAX_ANSWER_CHARS=4000
+MAX_SESSION_MESSAGES=120
 ```
 
 ## GET /api/health
@@ -90,6 +92,8 @@ whole session object.
 ## POST /api/answer
 
 Submits one typed or transcribed answer.
+If one answer exceeds `MAX_ANSWER_CHARS` or the returned session exceeds
+`MAX_SESSION_MESSAGES`, the backend returns `413` with a short user-safe message.
 
 Request:
 
