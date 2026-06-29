@@ -54,6 +54,20 @@ v2/
 
 Recommended Windows scripts from the repository root:
 
+Start both backend and frontend in the background:
+
+```powershell
+.\v2\scripts\run_local_stack.ps1
+```
+
+Stop the background stack:
+
+```powershell
+.\v2\scripts\stop_local_stack.ps1
+```
+
+Or run backend and frontend in separate terminals:
+
 ```powershell
 .\v2\scripts\run_backend.ps1
 ```
@@ -137,6 +151,7 @@ http://localhost:5173
 
 - Python compile check for the V2 backend modules.
 - Backend engine smoke test: start session -> identity answer -> Part 1 answer.
+- Local stack helper smoke test on alternate ports: backend health and frontend HTTP status.
 - FastAPI route smoke test with `python -m v2.backend.smoke_test`:
   `/api/health`, `/api/question-bank`, `/api/sessions`, `/api/answer`,
   and oversized audio rejection for `/api/transcribe`.
