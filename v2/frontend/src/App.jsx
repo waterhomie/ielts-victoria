@@ -35,6 +35,23 @@ function formatDuration(seconds) {
   return `${minutes}:${rest}`;
 }
 
+function friendlyError(err, fallback) {
+  const message = err?.message || "";
+  if (/microphone|permission|notallowed|denied/i.test(message)) {
+    return "Microphone access was blocked. Please allow microphone permission, or switch to Text.";
+  }
+  if (/recording is too short|too short/i.test(message)) {
+    return "That recording was too short. Tap again and answer in a complete sentence.";
+  }
+  if (/transcription|audio|whisper|duration|500|502/i.test(message)) {
+    return "Audio transcription is temporarily unavailable. You can switch to Text and type your answer.";
+  }
+  if (/network|failed to fetch|load failed/i.test(message)) {
+    return "Network connection is unstable. Please try again in a moment.";
+  }
+  return message || fallback;
+}
+
 function RichMessage({ content }) {
   const blocks = String(content || "").split(/\n{2,}/);
   return (
@@ -68,7 +85,9 @@ function MessageBubble({ message }) {
   const isUser = message.role === "user";
   return (
     <article className={`message-row ${isUser ? "user" : "assistant"}`}>
-      <div className="avatar">{isUser ? "🙂" : "🤖"}</div>
+      <div className="avatar" aria-hidden="true">
+        {isUser ? "Y" : "V"}
+      </div>
       <div className="bubble">
         <RichMessage content={message.content} />
       </div>
@@ -128,15 +147,20 @@ export default function App() {
   }, [recording]);
 
   async function createFreshSession() {
+    recorderRef.current?.cleanup?.();
+    recorderRef.current = null;
+    setRecording(false);
+    setElapsed(0);
     setError("");
     setReport("");
+    setDraft("");
     setBusy("starting");
     try {
       const data = await startSession(DEFAULT_SETTINGS);
       setSession(data.session);
       setAudioEnabled(data.session.voice_playback_enabled);
     } catch (err) {
-      setError(err.message || "Failed to start session.");
+      setError(friendlyError(err, "Failed to start session."));
     } finally {
       setBusy("");
     }
@@ -155,12 +179,18 @@ export default function App() {
     }
   }
 
+  function resetComposerAfterAnswer() {
+    setDraft("");
+    setElapsed(0);
+    recorderRef.current = null;
+  }
+
   async function submitAnswer(answer, source = "text", duration = null) {
     const cleaned = answer.trim();
     if (!cleaned || !session) return;
     setError("");
     setBusy("thinking");
-    setDraft("");
+    resetComposerAfterAnswer();
     try {
       const data = await sendAnswer({
         session,
@@ -171,7 +201,7 @@ export default function App() {
       setSession(data.session);
       await playSpeech(data.spoken_text);
     } catch (err) {
-      setError(err.message || "Victoria could not respond.");
+      setError(friendlyError(err, "Victoria could not respond."));
     } finally {
       setBusy("");
     }
@@ -188,13 +218,16 @@ export default function App() {
 
     if (!recording) {
       try {
+        recorderRef.current?.cleanup?.();
         recorderRef.current = new WavRecorder({ targetSampleRate: 16000 });
         await recorderRef.current.start();
         startedAtRef.current = Date.now();
         setElapsed(0);
         setRecording(true);
       } catch (err) {
-        setError(err.message || "Microphone permission was blocked.");
+        recorderRef.current?.cleanup?.();
+        recorderRef.current = null;
+        setError(friendlyError(err, "Microphone permission was blocked."));
       }
       return;
     }
@@ -203,6 +236,8 @@ export default function App() {
     setBusy("transcribing");
     try {
       const result = await recorderRef.current.stop();
+      recorderRef.current = null;
+      setElapsed(0);
       if (!result) return;
       const transcription = await transcribeAudio(result.blob);
       const text = transcription.text || "";
@@ -217,7 +252,10 @@ export default function App() {
         await submitAnswer(text, "audio", result.duration);
       }
     } catch (err) {
-      setError(err.message || "Recording could not be sent.");
+      recorderRef.current?.cleanup?.();
+      recorderRef.current = null;
+      setElapsed(0);
+      setError(friendlyError(err, "Recording could not be sent."));
       setBusy("");
     }
   }
@@ -230,7 +268,7 @@ export default function App() {
       const data = await buildReport(session);
       setReport(data.report);
     } catch (err) {
-      setError(err.message || "Report could not be generated.");
+      setError(friendlyError(err, "Report could not be generated."));
     } finally {
       setBusy("");
     }
@@ -342,4 +380,3 @@ export default function App() {
     </div>
   );
 }
-
