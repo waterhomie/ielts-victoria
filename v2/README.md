@@ -108,6 +108,7 @@ $env:BASE_URL="https://api.gptsapi.net/v1"
 $env:MODEL="gpt-5.4-mini"
 $env:CORS_ORIGINS="http://localhost:5173"
 $env:MAX_AUDIO_UPLOAD_MB="12"
+$env:RATE_LIMIT_PER_MINUTE="120"
 python -m uvicorn v2.backend.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -147,6 +148,7 @@ http://localhost:5173
 - Falls back to a rule-based report if the scoring model is temporarily unavailable.
 - Can download the final report and full transcript as plain text files.
 - Checks backend health on startup and turns timeout/backend failures into clear UI errors.
+- Includes a simple backend rate limit for public-deployment safety.
 
 ## Still to finish before replacing Streamlit
 
