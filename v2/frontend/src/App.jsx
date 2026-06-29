@@ -152,6 +152,7 @@ export default function App() {
   const bottomRef = useRef(null);
   const recorderRef = useRef(null);
   const audioRef = useRef(null);
+  const audioUrlRef = useRef("");
   const startedAtRef = useRef(0);
 
   const messages = session?.messages || [];
@@ -262,11 +263,16 @@ export default function App() {
   }, []);
 
   function stopCurrentAudio() {
-    if (!audioRef.current) return;
-    audioRef.current.pause();
-    audioRef.current.removeAttribute("src");
-    audioRef.current.load();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.removeAttribute("src");
+      audioRef.current.load();
+    }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+    }
     audioRef.current = null;
+    audioUrlRef.current = "";
   }
 
   async function createFreshSession() {
@@ -301,12 +307,14 @@ export default function App() {
       url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
+      audioUrlRef.current = url;
       audio.addEventListener(
         "ended",
         () => {
-          URL.revokeObjectURL(url);
           if (audioRef.current === audio) {
+            URL.revokeObjectURL(url);
             audioRef.current = null;
+            audioUrlRef.current = "";
           }
         },
         { once: true },
@@ -314,6 +322,9 @@ export default function App() {
       await audio.play();
     } catch (_) {
       if (url) URL.revokeObjectURL(url);
+      if (audioUrlRef.current === url) {
+        audioUrlRef.current = "";
+      }
       if (audioRef.current) {
         audioRef.current = null;
       }
