@@ -10,6 +10,7 @@ $repoRoot = Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")
 Set-Location $repoRoot
 $python = Resolve-V2Python
 $pnpm = Resolve-V2Pnpm
+Add-V2PythonPath -RepoRoot $repoRoot
 
 Write-Host "Running Examiner Victoria V2 checks..." -ForegroundColor Cyan
 
