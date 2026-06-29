@@ -433,7 +433,8 @@ button:not(:disabled):active {
   }
 
   h1 {
-    font-size: clamp(2.45rem, 14vw, 4.6rem);
+    font-size: clamp(2.2rem, 10.6vw, 3.1rem);
+    letter-spacing: -0.06em;
   }
 
   .message-row,
