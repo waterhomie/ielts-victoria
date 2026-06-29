@@ -68,6 +68,8 @@ Last updated: 2026-06-29
 - Added V2 final-report and transcript text downloads from the React report screen.
 - Added V2 mobile/PWA basics: app manifest, theme metadata, iOS web-app metadata, and
   lightweight SVG app icon.
+- Added V2 rule-based final-report fallback so `/api/report` returns useful practice
+  guidance even when the model/API key is temporarily unavailable.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
