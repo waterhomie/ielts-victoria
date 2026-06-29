@@ -18,4 +18,4 @@ Set-Location $frontendRoot
 if (-not $SkipInstall) {
     Invoke-V2Native $pnpm install
 }
-Invoke-V2Native $pnpm run dev -- --port $Port
+Invoke-V2Native $pnpm exec vite --host 0.0.0.0 --port $Port
