@@ -129,6 +129,7 @@ http://localhost:5173
 - Starts a new IELTS speaking session.
 - Displays messages in a real React chat panel.
 - Uses a fixed iOS-style bottom composer.
+- Includes mobile/PWA basics: viewport-fit, theme color, manifest, and lightweight app icon.
 - Supports typed answers.
 - Supports tap-to-record / tap-to-send voice capture.
 - Encodes browser audio as compact 16kHz mono WAV before transcription.
