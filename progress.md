@@ -65,6 +65,7 @@ Last updated: 2026-06-29
   configuration failures show clear recovery messages instead of hanging silently.
 - Added V2 local stack scripts to start/stop the React frontend and FastAPI backend together
   with logs, PID tracking, port checks, and health/status verification.
+- Added V2 final-report and transcript text downloads from the React report screen.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
