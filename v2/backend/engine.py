@@ -41,6 +41,66 @@ PART1_GENERAL_FOLLOWUPS = [
     "What part of your daily routine do you enjoy most?",
 ]
 
+APP_BASE_CUE_CARDS = [
+    {
+        "title": "an interesting building",
+        "prompt": (
+            "Describe a building that you think is interesting.\n\n"
+            "You should say:\n"
+            "- what the building is\n"
+            "- where it is\n"
+            "- what it looks like\n"
+            "- and explain why you find it interesting"
+        ),
+        "follow_up": "Would you like to visit this building again? Why or why not?",
+        "part3": [
+            "What makes a building attractive to the public?",
+            "Should architects give more importance to beauty or function?",
+            "Why is it important to preserve some old buildings?",
+            "How might public buildings change in the future?",
+        ],
+    },
+    {
+        "title": "a useful skill",
+        "prompt": (
+            "Describe a useful skill that you learned.\n\n"
+            "You should say:\n"
+            "- what the skill is\n"
+            "- when and where you learned it\n"
+            "- how you learned it\n"
+            "- and explain why this skill is useful to you"
+        ),
+        "follow_up": "Would you like to become even better at this skill?",
+        "part3": [
+            "What skills are most important for young people today?",
+            "Is it easier to learn practical skills online or face to face?",
+            "Should schools spend more time teaching practical skills?",
+            "How will the skills needed for work change in the future?",
+        ],
+    },
+    {
+        "title": "an inspiring person",
+        "prompt": (
+            "Describe a person who has inspired you.\n\n"
+            "You should say:\n"
+            "- who this person is\n"
+            "- how you know this person\n"
+            "- what qualities this person has\n"
+            "- and explain how this person inspired you"
+        ),
+        "follow_up": "Would you like to be more like this person in the future?",
+        "part3": [
+            "What qualities make someone a good role model?",
+            "Are famous people always suitable role models for young people?",
+            "How can teachers motivate their students?",
+            "Do people become less easily influenced as they get older?",
+        ],
+    },
+]
+
+ALL_CUE_CARDS = APP_BASE_CUE_CARDS + list(EXTRA_CUE_CARDS)
+EXPECTED_CUE_CARD_COUNT = 73
+
 
 def get_secret(name: str, default: str | None = None) -> str | None:
     return os.getenv(name) or os.getenv(f"STREAMLIT_{name}") or default
@@ -50,6 +110,25 @@ API_KEY = get_secret("API_KEY")
 BASE_URL = get_secret("BASE_URL", "https://api.gptsapi.net/v1")
 MODEL = get_secret("MODEL", "gpt-5.4-mini")
 TRANSCRIPTION_MODEL = get_secret("TRANSCRIPTION_MODEL", "whisper-1")
+
+
+def get_question_bank_summary() -> dict[str, int]:
+    part1_secondary_question_count = sum(
+        len(topic["questions"]) for topic in PART1_SECONDARY_TOPICS
+    )
+    part1_identity_followup_count = len(PART1_STUDY_QUESTIONS) + len(PART1_WORK_QUESTIONS)
+    return {
+        "part1_topics": len(PART1_SECONDARY_TOPICS) + 2,
+        "part1_secondary_topics": len(PART1_SECONDARY_TOPICS),
+        "part1_total_questions": part1_secondary_question_count + part1_identity_followup_count,
+        "part1_secondary_questions": part1_secondary_question_count,
+        "part1_identity_followup_questions": part1_identity_followup_count,
+        "part2_base_cards": len(APP_BASE_CUE_CARDS),
+        "part2_extra_cards": len(EXTRA_CUE_CARDS),
+        "part2_total_cards": len(ALL_CUE_CARDS),
+        "part2_expected_cards": EXPECTED_CUE_CARD_COUNT,
+        "part3_reference_questions": sum(len(card.get("part3", [])) for card in ALL_CUE_CARDS),
+    }
 
 
 def get_client():
@@ -353,7 +432,7 @@ def start_session(
             k=min(3, len(selected_topic["questions"])),
         ),
         part3_target_count=PRACTICE_PART3_QUESTION_COUNT if practice_mode else MOCK_PART3_QUESTION_COUNT,
-        cue_card=random.choice(EXTRA_CUE_CARDS),
+        cue_card=random.choice(ALL_CUE_CARDS),
     )
     return session
 
