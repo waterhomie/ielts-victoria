@@ -114,6 +114,15 @@ export default function App() {
   const messages = session?.messages || [];
   const currentPhase = phaseLabel(session?.phase);
   const canAnswer = Boolean(session?.test_active) && !busy && !recording;
+  const canStartRecording = Boolean(session?.test_active) && !busy;
+  const recordButtonDisabled = recording ? false : !canStartRecording;
+  const recordButtonText = !session
+    ? "Starting..."
+    : session.test_active
+      ? recording
+        ? "Tap to send"
+        : "Tap to record"
+      : "Test complete";
 
   const stageProgress = useMemo(() => {
     const map = {
@@ -151,6 +160,16 @@ export default function App() {
     }, 120);
     return () => window.clearInterval(timer);
   }, [recording]);
+
+  useEffect(() => {
+    function cleanupRecorder() {
+      recorderRef.current?.cleanup?.();
+      recorderRef.current = null;
+    }
+
+    window.addEventListener("pagehide", cleanupRecorder);
+    return () => window.removeEventListener("pagehide", cleanupRecorder);
+  }, []);
 
   async function createFreshSession() {
     recorderRef.current?.cleanup?.();
@@ -336,8 +355,9 @@ export default function App() {
           <button
             className="mode-button"
             type="button"
-            disabled={Boolean(busy) || recording}
+            disabled={Boolean(busy) || recording || !session?.test_active}
             onClick={() => setMode((value) => (value === "voice" ? "text" : "voice"))}
+            aria-label={mode === "voice" ? "Switch to text input" : "Switch to voice input"}
           >
             {mode === "voice" ? "Text" : "Voice"}
           </button>
@@ -347,10 +367,12 @@ export default function App() {
               <button
                 className={`record-button ${recording ? "recording" : ""}`}
                 type="button"
-                disabled={Boolean(busy) && !recording}
+                disabled={recordButtonDisabled}
                 onClick={toggleRecording}
+                aria-pressed={recording}
+                aria-label={recording ? "Stop recording and send" : "Start recording"}
               >
-                {recording ? "Tap to send" : "Tap to record"}
+                {recordButtonText}
               </button>
               <span className="timer">{recording ? formatDuration(elapsed) : "ready"}</span>
               <label className="review-toggle">
@@ -368,6 +390,7 @@ export default function App() {
                 value={draft}
                 disabled={!canAnswer && !draft}
                 placeholder="Type your answer..."
+                autoComplete="off"
                 onChange={(event) => setDraft(event.target.value)}
               />
               <button type="submit" disabled={!draft.trim() || Boolean(busy)}>
