@@ -36,7 +36,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -86,6 +87,33 @@ h1 {
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.practice-select {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+}
+
+.practice-select span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.practice-select select {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: 750;
+  cursor: pointer;
 }
 
 .ghost-button,
@@ -457,6 +485,17 @@ button:not(:disabled):active {
   .ghost-button {
     min-height: 34px;
     padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .practice-select {
+    min-height: 34px;
+    padding: 0 8px;
+    gap: 4px;
+  }
+
+  .practice-select span,
+  .practice-select select {
     font-size: 12px;
   }
 
