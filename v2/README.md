@@ -151,7 +151,7 @@ http://localhost:5173
 - Sends answers to the Python state machine.
 - Supports dynamic Part 3 follow-up generation through the backend.
 - Shows a refresh-safe Part 2 preparation countdown when the long-turn cue card starts.
-- Can request final scoring report from the backend.
+- Can request a current scoring report from the backend before or after completing the full test.
 - Falls back to a rule-based report if the scoring model is temporarily unavailable.
 - Can download the final report and full transcript as plain text files.
 - Keeps voice playback single-channel so restarting or answering stops any previous prompt audio.
