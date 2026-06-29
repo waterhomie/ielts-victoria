@@ -78,6 +78,12 @@ function friendlyError(err, fallback) {
   if (/recording is too short|too short/i.test(message)) {
     return "That recording was too short. Tap again and answer in a complete sentence.";
   }
+  if (/too many requests/i.test(message)) {
+    return "Too many requests. Please wait a moment before trying again.";
+  }
+  if (/too long|too large|session is too large|voice playback text/i.test(message)) {
+    return message;
+  }
   if (/transcription|audio|whisper|duration|500|502/i.test(message)) {
     return "Audio transcription is temporarily unavailable. You can switch to Text and type your answer.";
   }
