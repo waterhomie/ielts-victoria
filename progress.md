@@ -78,6 +78,8 @@ Last updated: 2026-06-29
   can restore the current conversation, report, audio preference, and transcript-review setting.
 - Hardened the V2 local check script so it automatically loads cached backend dependencies
   from `tmp/v2_backend_deps` before running FastAPI smoke tests.
+- Replaced raw transcription/TTS provider 502 details with short user-safe messages and
+  smoke-test coverage, so mobile users do not see internal provider errors.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
