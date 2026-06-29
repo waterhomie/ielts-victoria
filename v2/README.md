@@ -136,6 +136,7 @@ http://localhost:5173
 - Sends answers to the Python state machine.
 - Supports dynamic Part 3 follow-up generation through the backend.
 - Can request final scoring report from the backend.
+- Falls back to a rule-based report if the scoring model is temporarily unavailable.
 - Can download the final report and full transcript as plain text files.
 - Checks backend health on startup and turns timeout/backend failures into clear UI errors.
 
@@ -156,7 +157,7 @@ http://localhost:5173
 - Local stack helper smoke test on alternate ports: backend health and frontend HTTP status.
 - FastAPI route smoke test with `python -m v2.backend.smoke_test`:
   `/api/health`, `/api/question-bank`, `/api/sessions`, `/api/answer`,
-  and oversized audio rejection for `/api/transcribe`.
+  report fallback behavior, and oversized audio rejection for `/api/transcribe`.
 - Frontend dependency install with pnpm.
 - Frontend production build with Vite.
 - Question-bank validation from the existing app.
