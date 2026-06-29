@@ -84,6 +84,99 @@ function buildTranscriptText(session) {
   return lines.join("\n").trim() + "\n";
 }
 
+function phaseNameForRecord(phase) {
+  const names = {
+    identity: "Identity check",
+    part1: "Part 1",
+    part2_long: "Part 2 long turn",
+    part2_followup: "Part 2 follow-up",
+    part3: "Part 3",
+    complete: "Complete",
+  };
+  return names[phase] || phase || "Unknown";
+}
+
+function formatSecondsForRecord(seconds) {
+  if (seconds === null || seconds === undefined || Number.isNaN(Number(seconds))) return "N/A";
+  return `${Number(seconds).toFixed(1)}s`;
+}
+
+function buildPracticeRecordText(session, report) {
+  const answers = session?.candidate_answers || [];
+  const stats = session?.answer_stats || [];
+  const answeredStats = stats.filter((item) => item.phase !== "identity");
+  const totalWords = answeredStats.reduce((sum, item) => sum + (item.word_count || 0), 0);
+  const totalSeconds = answeredStats.reduce((sum, item) => sum + (Number(item.duration) || 0), 0);
+  const audioCount = answeredStats.filter((item) => item.source === "audio").length;
+  const textCount = answeredStats.filter((item) => item.source === "text").length;
+  const wpmValues = answeredStats
+    .map((item) => Number(item.words_per_minute))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const averageWpm = wpmValues.length
+    ? `${Math.round(wpmValues.reduce((sum, value) => sum + value, 0) / wpmValues.length)} WPM`
+    : "N/A";
+  const cueCard = session?.cue_card || {};
+
+  const lines = [
+    "Examiner Victoria V2 - Practice Record",
+    `Generated at: ${new Date().toLocaleString()}`,
+    `Session ID: ${session?.session_id || "unknown"}`,
+    "",
+    "## Session summary",
+    `Practice type: ${session?.practice_type || "full"}`,
+    `Current phase: ${phaseNameForRecord(session?.phase)}`,
+    `Part 1 topic: ${session?.part1_topic || "Random / not selected"}`,
+    `Cue card: ${cueCard.title || "Random / not reached yet"}`,
+    `Candidate answers: ${answers.length}`,
+    `Audio answers: ${audioCount}`,
+    `Text answers: ${textCount}`,
+    `Total spoken/recorded duration: ${formatSecondsForRecord(totalSeconds)}`,
+    `Total words: ${totalWords}`,
+    `Average WPM: ${averageWpm}`,
+  ];
+
+  if (cueCard.prompt) {
+    lines.push("", "## Part 2 cue card", cueCard.prompt);
+  }
+
+  lines.push("", "## Timing and fluency stats");
+  if (stats.length) {
+    stats.forEach((item, index) => {
+      lines.push(
+        `${index + 1}. ${phaseNameForRecord(item.phase)} | ${item.source} | duration ${formatSecondsForRecord(item.duration)} | ${item.word_count || 0} words | ${item.words_per_minute ? `${Math.round(item.words_per_minute)} WPM` : "WPM N/A"}`,
+      );
+    });
+  } else {
+    lines.push("No timing stats saved yet.");
+  }
+
+  lines.push("", "## Question-by-question answers");
+  if (answers.length) {
+    answers.forEach((item, index) => {
+      const stat = stats[index] || {};
+      lines.push(
+        `${index + 1}. ${phaseNameForRecord(item.phase)} (${item.source || stat.source || "text"}, ${formatSecondsForRecord(item.duration ?? stat.duration)})`,
+        `Q: ${item.question || "N/A"}`,
+        `A: ${item.answer || ""}`,
+        "",
+      );
+    });
+  } else {
+    lines.push("No candidate answers saved yet.");
+  }
+
+  lines.push(
+    "",
+    "## Full transcript",
+    buildTranscriptText(session).trim(),
+    "",
+    "## Report",
+    report?.trim() || "No score report generated yet. Tap Score when you want Victoria to create one.",
+  );
+
+  return lines.join("\n").replace(/\n{4,}/g, "\n\n\n").trim() + "\n";
+}
+
 function friendlyError(err, fallback) {
   const message = err?.message || "";
   if (/microphone|permission|notallowed|denied/i.test(message)) {
@@ -186,6 +279,7 @@ export default function App() {
   const canAnswer = Boolean(session?.test_active) && !busy && !recording;
   const canStartRecording = Boolean(session?.test_active) && !busy;
   const canScoreNow = Boolean(session?.candidate_answers?.some((item) => item.phase !== "identity")) && !busy;
+  const canExportRecord = Boolean(session?.messages?.length || session?.candidate_answers?.length) && !busy;
   const recordButtonDisabled = recording ? false : !canStartRecording;
   const recordButtonText = !session
     ? "Starting..."
@@ -575,6 +669,14 @@ export default function App() {
     downloadTextFile(`examiner-victoria-transcript-${safeDateStamp()}.txt`, buildTranscriptText(session));
   }
 
+  function downloadPracticeRecord() {
+    if (!session) return;
+    downloadTextFile(
+      `examiner-victoria-practice-record-${safeDateStamp()}.txt`,
+      buildPracticeRecordText(session, report),
+    );
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -599,6 +701,11 @@ export default function App() {
           {canScoreNow ? (
             <button className="ghost-button" type="button" onClick={requestReport}>
               Score
+            </button>
+          ) : null}
+          {canExportRecord ? (
+            <button className="ghost-button" type="button" onClick={downloadPracticeRecord}>
+              Export
             </button>
           ) : null}
           <button className="ghost-button" type="button" onClick={createFreshSession}>
@@ -680,6 +787,9 @@ export default function App() {
               </button>
               <button type="button" className="ghost-button" onClick={downloadTranscript}>
                 Download transcript
+              </button>
+              <button type="button" className="ghost-button" onClick={downloadPracticeRecord}>
+                Download practice record
               </button>
             </div>
           </section>
