@@ -72,6 +72,8 @@ Last updated: 2026-06-29
   guidance even when the model/API key is temporarily unavailable.
 - Added V2 deployed-environment smoke-check script for backend health, question-bank counts,
   and frontend HTML availability.
+- Added V2 backend in-memory rate limiting with `RATE_LIMIT_PER_MINUTE` to reduce accidental
+  public API abuse during early deployment.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
