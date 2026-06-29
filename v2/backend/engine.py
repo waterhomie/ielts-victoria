@@ -132,6 +132,31 @@ def get_question_bank_summary() -> dict[str, int]:
     }
 
 
+def get_practice_options() -> dict[str, list]:
+    return {
+        "part1_topics": [topic["name"] for topic in PART1_SECONDARY_TOPICS],
+        "cue_cards": [{"title": card["title"]} for card in ALL_CUE_CARDS],
+    }
+
+
+def choose_part1_topic(topic_name: str | None = None) -> dict:
+    if topic_name:
+        normalized = topic_name.strip().lower()
+        for topic in PART1_SECONDARY_TOPICS:
+            if topic["name"].lower() == normalized:
+                return topic
+    return random.choice(PART1_SECONDARY_TOPICS)
+
+
+def choose_cue_card(cue_card_title: str | None = None) -> dict:
+    if cue_card_title:
+        normalized = cue_card_title.strip().lower()
+        for card in ALL_CUE_CARDS:
+            if card["title"].lower() == normalized:
+                return card
+    return random.choice(ALL_CUE_CARDS)
+
+
 def get_client():
     if not API_KEY:
         raise RuntimeError("Missing API_KEY environment variable.")
@@ -425,11 +450,13 @@ def build_reply(
 def start_session(
     practice_mode: bool = True,
     practice_type: str = "full",
+    part1_topic: str | None = None,
+    cue_card_title: str | None = None,
     answer_expansion_mode: bool = True,
     voice_playback_enabled: bool = True,
 ) -> ExamSession:
-    selected_topic = random.choice(PART1_SECONDARY_TOPICS)
-    cue_card = random.choice(ALL_CUE_CARDS)
+    selected_topic = choose_part1_topic(part1_topic)
+    cue_card = choose_cue_card(cue_card_title)
     session = ExamSession(
         session_id=str(uuid.uuid4()),
         messages=[ChatMessage(role="assistant", content=FIRST_MESSAGE, phase="identity")],
