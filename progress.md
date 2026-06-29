@@ -100,6 +100,8 @@ Last updated: 2026-06-29
   session-start/identity-answer API flow in addition to health, question bank, and frontend HTML.
 - Fixed V2 frontend helper scripts so custom dev ports are honored reliably through
   `pnpm exec vite`, then verified the local stack on alternate ports.
+- Added a rule-based V2 session learning summary to every report/export, using only
+  raw candidate answers and timing data to identify recurring weaknesses and the next-session focus.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
@@ -218,16 +220,16 @@ It is not yet ready for:
 
 Recommended next task:
 
-> Add a learner profile / session learning summary that records recurring weaknesses and suggests the next-session focus.
+> Refactor the V2 state machine into smaller phase handlers without changing behavior.
 
 Acceptance criteria:
 
-1. The app summarizes recurring grammar, vocabulary, fluency, and answer-development weaknesses after a session.
-2. The summary is based only on the candidate's raw answers and timing data.
-3. The summary can be exported with the final report.
-4. The app does not store personal data outside the current session unless the user explicitly exports it.
-5. `python -m py_compile` passes.
-6. `python validate_question_bank.py` passes.
+1. `process_answer` delegates identity, Part 1, Part 2, and Part 3 logic to smaller functions.
+2. Existing phase transitions and Part 3 dynamic-question behavior remain unchanged.
+3. The FastAPI smoke test still reaches Part 2 and verifies report output.
+4. `python -m py_compile` passes.
+5. `python validate_question_bank.py` passes.
+6. Frontend production build passes.
 
 ## Notes for future AI collaborators
 
