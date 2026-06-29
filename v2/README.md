@@ -150,6 +150,7 @@ http://localhost:5173
 - Encodes browser audio as compact 16kHz mono WAV before transcription.
 - Sends answers to the Python state machine.
 - Supports dynamic Part 3 follow-up generation through the backend.
+- Shows a refresh-safe Part 2 preparation countdown when the long-turn cue card starts.
 - Can request final scoring report from the backend.
 - Falls back to a rule-based report if the scoring model is temporarily unavailable.
 - Can download the final report and full transcript as plain text files.
