@@ -76,6 +76,8 @@ class ExamSession(BaseModel):
 class StartSessionRequest(BaseModel):
     practice_mode: bool = True
     practice_type: PracticeType = "full"
+    part1_topic: str | None = None
+    cue_card_title: str | None = None
     answer_expansion_mode: bool = True
     voice_playback_enabled: bool = True
 
