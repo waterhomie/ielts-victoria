@@ -289,6 +289,17 @@ blockquote {
   margin: 0 0 10px;
 }
 
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.report-actions .ghost-button {
+  min-height: 42px;
+}
+
 .composer-wrap {
   position: fixed;
   left: 50%;
