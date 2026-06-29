@@ -52,10 +52,20 @@ def get_rate_limit_per_minute() -> int:
         return 120
 
 
+def get_positive_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return default
+
+
 MAX_AUDIO_UPLOAD_BYTES = get_max_audio_upload_bytes()
 RATE_LIMIT_PER_MINUTE = get_rate_limit_per_minute()
 RATE_LIMIT_WINDOW_SECONDS = 60
 REQUEST_LOG: dict[str, deque[float]] = defaultdict(deque)
+MAX_ANSWER_CHARS = get_positive_int_env("MAX_ANSWER_CHARS", 4000)
+MAX_SESSION_MESSAGES = get_positive_int_env("MAX_SESSION_MESSAGES", 120)
 TRANSCRIPTION_FAILURE_MESSAGE = (
     "Audio transcription is temporarily unavailable. Please switch to Text or try again."
 )
@@ -79,6 +89,20 @@ def enforce_rate_limit(request: Request) -> None:
         )
 
     timestamps.append(now)
+
+
+def enforce_payload_limits(answer: str | None, message_count: int) -> None:
+    if answer is not None and len(answer) > MAX_ANSWER_CHARS:
+        raise HTTPException(
+            status_code=413,
+            detail="Your answer is too long for one turn. Please shorten it and try again.",
+        )
+    if message_count > MAX_SESSION_MESSAGES:
+        raise HTTPException(
+            status_code=413,
+            detail="This session is too large. Please restart the test before continuing.",
+        )
+
 
 app = FastAPI(
     title="Examiner Victoria V2 API",
@@ -120,6 +144,7 @@ def create_session(request_body: StartSessionRequest, request: Request) -> Start
 def answer_question(request_body: AnswerRequest, request: Request) -> AnswerResponse:
     enforce_rate_limit(request)
     answer = request_body.answer.strip()
+    enforce_payload_limits(answer, len(request_body.session.messages))
     if not answer:
         raise HTTPException(status_code=400, detail="Answer cannot be empty.")
     session, assistant_message, spoken_text, start_prep_timer = process_answer(
@@ -180,4 +205,5 @@ def tts(request_body: TTSRequest, request: Request) -> Response:
 @app.post("/api/report", response_model=ReportResponse)
 def report(request_body: ReportRequest, request: Request) -> ReportResponse:
     enforce_rate_limit(request)
+    enforce_payload_limits(None, len(request_body.session.messages))
     return ReportResponse(report=build_report(request_body.session))
