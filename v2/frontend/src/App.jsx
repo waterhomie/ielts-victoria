@@ -264,6 +264,9 @@ export default function App() {
       recorderRef.current = null;
       setElapsed(0);
       if (!result) return;
+      if (!result.blob || result.blob.size < 1024 || !Number.isFinite(result.duration)) {
+        throw new Error("Recording is too short.");
+      }
       const transcription = await transcribeAudio(result.blob);
       const text = transcription.text || "";
       if (!text.trim()) {
