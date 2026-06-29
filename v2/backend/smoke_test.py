@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 import v2.backend.app as app_module
 from v2.backend.app import app
-from v2.backend.engine import build_fallback_report
+from v2.backend.engine import build_fallback_report, build_session_learning_summary
 from v2.backend.schemas import ExamSession
 
 
@@ -146,10 +146,16 @@ def main() -> None:
     report_text = report.json()["report"]
     assert "Report generation failed" not in report_text, report_text
     assert len(report_text) > 80, report_text
+    assert "Session learning summary" in report_text, report_text
 
     fallback_text = build_fallback_report(ExamSession.model_validate(session))
     assert "rule-based fallback" in fallback_text, fallback_text
     assert "Next-session practice tasks" in fallback_text, fallback_text
+    assert "Session learning summary" in fallback_text, fallback_text
+
+    summary_text = build_session_learning_summary(ExamSession.model_validate(session))
+    assert "Evidence used" in summary_text, summary_text
+    assert "Next-session focus" in summary_text, summary_text
 
     app_module.REQUEST_LOG.clear()
     original_rate_limit = app_module.RATE_LIMIT_PER_MINUTE
