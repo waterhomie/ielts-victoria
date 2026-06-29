@@ -14,6 +14,7 @@ MAX_AUDIO_UPLOAD_MB=12
 RATE_LIMIT_PER_MINUTE=120
 MAX_ANSWER_CHARS=4000
 MAX_SESSION_MESSAGES=120
+MAX_TTS_CHARS=1200
 ```
 
 ## GET /api/health
@@ -160,6 +161,8 @@ user-safe message and does not expose provider/internal error details.
 ## POST /api/tts
 
 Generates speech audio for a short assistant prompt.
+If the requested speech text exceeds `MAX_TTS_CHARS`, the backend returns
+`413` before calling the voice provider.
 
 Request:
 
