@@ -30,6 +30,28 @@ Invoke-V2Native $python -m py_compile `
     .\pdf_recall_question_bank.py `
     .\validate_question_bank.py
 
+$scriptFiles = @(
+    ".\v2\scripts\_common.ps1",
+    ".\v2\scripts\check_v2.ps1",
+    ".\v2\scripts\run_backend.ps1",
+    ".\v2\scripts\run_frontend.ps1",
+    ".\v2\scripts\run_local_stack.ps1",
+    ".\v2\scripts\stop_local_stack.ps1",
+    ".\v2\scripts\check_deployed_v2.ps1"
+)
+foreach ($scriptFile in $scriptFiles) {
+    $tokens = $null
+    $parseErrors = $null
+    [System.Management.Automation.Language.Parser]::ParseFile(
+        (Resolve-Path -LiteralPath $scriptFile),
+        [ref]$tokens,
+        [ref]$parseErrors
+    ) | Out-Null
+    if ($parseErrors.Count -gt 0) {
+        throw "PowerShell parse failed for ${scriptFile}: $($parseErrors[0].Message)"
+    }
+}
+
 Invoke-V2Native $python .\validate_question_bank.py
 Invoke-V2Native $python -m v2.backend.smoke_test
 
