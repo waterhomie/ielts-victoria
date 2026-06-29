@@ -88,6 +88,8 @@ Last updated: 2026-06-29
   regressions are caught with the regular local checks.
 - Added a V2 Part 2 preparation countdown that is driven by the backend state transition
   and preserved by the frontend's local session persistence.
+- Added a V2 `Score now` action so learners can generate a current report before completing
+  the entire mock test; old reports clear automatically when the learner continues answering.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
