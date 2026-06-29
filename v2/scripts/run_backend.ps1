@@ -1,5 +1,6 @@
 param(
-    [int]$Port = 8000
+    [int]$Port = 8000,
+    [switch]$SkipInstall
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,6 +10,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")
 Set-Location $repoRoot
 $python = Resolve-V2Python
+Add-V2PythonPath -RepoRoot $repoRoot
 
 Write-Host "Examiner Victoria V2 backend" -ForegroundColor Cyan
 Write-Host "Repository: $repoRoot"
@@ -22,5 +24,7 @@ if (-not $env:API_KEY) {
     Write-Host ""
 }
 
-Invoke-V2Native $python -m pip install -r .\v2\backend\requirements.txt
+if (-not $SkipInstall) {
+    Invoke-V2Native $python -m pip install -r .\v2\backend\requirements.txt
+}
 Invoke-V2Native $python -m uvicorn v2.backend.app:app --reload --host 0.0.0.0 --port $Port
