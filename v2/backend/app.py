@@ -10,6 +10,7 @@ from fastapi.responses import Response
 
 from .engine import (
     build_report,
+    get_practice_options,
     get_question_bank_summary,
     process_answer,
     start_session,
@@ -130,12 +131,19 @@ def question_bank() -> dict[str, int]:
     return get_question_bank_summary()
 
 
+@app.get("/api/practice-options")
+def practice_options() -> dict[str, list]:
+    return get_practice_options()
+
+
 @app.post("/api/sessions", response_model=StartSessionResponse)
 def create_session(request_body: StartSessionRequest, request: Request) -> StartSessionResponse:
     enforce_rate_limit(request)
     session = start_session(
         practice_mode=request_body.practice_mode,
         practice_type=request_body.practice_type,
+        part1_topic=request_body.part1_topic,
+        cue_card_title=request_body.cue_card_title,
         answer_expansion_mode=request_body.answer_expansion_mode,
         voice_playback_enabled=request_body.voice_playback_enabled,
     )
