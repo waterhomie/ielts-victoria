@@ -17,6 +17,12 @@ def main() -> None:
     assert bank["part2_total_cards"] == 73, bank
     assert bank["part2_total_cards"] == bank["part2_expected_cards"], bank
 
+    oversized_audio = client.post(
+        "/api/transcribe",
+        files={"file": ("answer.wav", b"0" * (13 * 1024 * 1024), "audio/wav")},
+    )
+    assert oversized_audio.status_code == 413, oversized_audio.text
+
     start = client.post(
         "/api/sessions",
         json={
