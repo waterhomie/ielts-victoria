@@ -637,6 +637,57 @@ def export_candidate_answer_log(session: ExamSession) -> str:
     return "\n".join(lines) or "No candidate answers recorded."
 
 
+def build_fallback_report(session: ExamSession) -> str:
+    answers = [item for item in session.candidate_answers if item.phase != "identity"]
+    stats = [item for item in session.answer_stats if item.phase != "identity"]
+    total_words = sum(len(re.findall(r"[A-Za-z']+", item.answer)) for item in answers)
+    average_words = round(total_words / len(answers), 1) if answers else 0
+    phases = {item.phase for item in answers}
+    wpm_values = [item.words_per_minute for item in stats if item.words_per_minute]
+    average_wpm = round(sum(wpm_values) / len(wpm_values), 1) if wpm_values else None
+
+    if not answers:
+        band_range = "not enough evidence"
+    elif {"part2_long", "part3"}.issubset(phases) and average_words >= 35:
+        band_range = "around 6.0-6.5, pending human/model review"
+    elif average_words >= 18:
+        band_range = "around 5.5-6.0, pending human/model review"
+    else:
+        band_range = "around 5.0-5.5, pending human/model review"
+
+    problems = []
+    if average_words and average_words < 18:
+        problems.append("Many answers are very short, so they leave little room to show fluency and range.")
+    if "part2_long" not in phases:
+        problems.append("There is not enough Part 2 evidence yet; the long-turn answer is essential for scoring.")
+    elif session.part2_audio_used and session.part2_duration < 60:
+        problems.append("The Part 2 long turn appears short; aim closer to 90-120 seconds in mock mode.")
+    if "part3" not in phases:
+        problems.append("There is not enough Part 3 evidence yet, so abstract discussion ability is under-tested.")
+    if average_wpm and (average_wpm < 90 or average_wpm > 180):
+        problems.append(f"The average speaking pace is about {average_wpm} WPM, which may need adjustment.")
+    if not problems:
+        problems.append("No single issue dominates the rule-based summary; review the transcript for repeated language patterns.")
+
+    tasks = [
+        "Give every Part 1 answer a direct answer plus one reason or example.",
+        "Practise one complete Part 2 answer for 90-120 seconds before requesting a score.",
+        "For Part 3, answer with a clear opinion, one reason, and one real-world example.",
+    ]
+
+    return "\n\n".join(
+        [
+            "## Final report (rule-based fallback)",
+            "The AI scoring model was temporarily unavailable, so this report uses the saved raw answers and timing data only.",
+            f"**Estimated band range:** {band_range}",
+            f"**Evidence used:** {len(answers)} candidate answers, {total_words} spoken words, average answer length {average_words} words.",
+            f"**Speaking pace:** {average_wpm} WPM." if average_wpm else "**Speaking pace:** not enough audio timing evidence.",
+            "**Main issues noticed:**\n" + "\n".join(f"- {problem}" for problem in problems[:3]),
+            "**Next-session practice tasks:**\n" + "\n".join(f"{index}. {task}" for index, task in enumerate(tasks, start=1)),
+        ]
+    )
+
+
 def build_report(session: ExamSession) -> str:
     prompt = f"""
 Create a clear IELTS Speaking practice report based only on the candidate answers below.
@@ -664,5 +715,5 @@ Raw answer log:
                 {"role": "user", "content": prompt},
             ]
         )
-    except Exception as error:
-        return f"Report generation failed: {error}"
+    except Exception:
+        return build_fallback_report(session)
