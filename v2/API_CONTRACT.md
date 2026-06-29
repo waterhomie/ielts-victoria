@@ -61,10 +61,13 @@ Request:
 ```json
 {
   "practice_mode": true,
+  "practice_type": "full",
   "answer_expansion_mode": true,
   "voice_playback_enabled": true
 }
 ```
+
+`practice_type` can be `full`, `part1`, `part2`, or `part3`.
 
 Response:
 
