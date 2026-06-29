@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -24,6 +26,24 @@ from .schemas import (
 )
 
 
+def get_cors_origins() -> list[str]:
+    raw = os.getenv("CORS_ORIGINS", "*").strip()
+    if not raw or raw == "*":
+        return ["*"]
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+def get_max_audio_upload_bytes() -> int:
+    raw = os.getenv("MAX_AUDIO_UPLOAD_MB", "12").strip()
+    try:
+        megabytes = float(raw)
+    except ValueError:
+        megabytes = 12
+    return max(1, int(megabytes * 1024 * 1024))
+
+
+MAX_AUDIO_UPLOAD_BYTES = get_max_audio_upload_bytes()
+
 app = FastAPI(
     title="Examiner Victoria V2 API",
     version="0.1.0",
@@ -32,7 +52,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=get_cors_origins(),
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -84,6 +104,14 @@ async def transcribe(
     content_type: str | None = Header(default=None),
 ) -> TranscriptionResponse:
     audio_bytes = await file.read()
+    if len(audio_bytes) > MAX_AUDIO_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                "Audio file is too large. Please record a shorter answer "
+                "or lower the upload limit with MAX_AUDIO_UPLOAD_MB."
+            ),
+        )
     mime_type = file.content_type or content_type or "audio/wav"
     try:
         text = transcribe_audio(audio_bytes, mime_type)
