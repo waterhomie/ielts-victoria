@@ -74,8 +74,8 @@ Last updated: 2026-06-29
   and frontend HTML availability.
 - Added V2 backend in-memory rate limiting with `RATE_LIMIT_PER_MINUTE` to reduce accidental
   public API abuse during early deployment.
-- Added V2 local session persistence via `localStorage` so accidental refreshes can restore
-  the current conversation, report, audio preference, and transcript-review setting.
+- Added V2 best-effort local session persistence via `localStorage` so accidental refreshes
+  can restore the current conversation, report, audio preference, and transcript-review setting.
 - Hardened the V2 local check script so it automatically loads cached backend dependencies
   from `tmp/v2_backend_deps` before running FastAPI smoke tests.
 - Adjusted Part 3 question count:
