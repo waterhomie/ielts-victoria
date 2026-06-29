@@ -1,6 +1,6 @@
 # Development Progress
 
-Last updated: 2026-06-28
+Last updated: 2026-06-29
 
 ## Completed
 
@@ -50,6 +50,11 @@ Last updated: 2026-06-28
   state engine; `v2/frontend` now contains a React/Vite iOS-style chat UI with a fixed
   bottom composer and tap-to-record WAV capture. The Streamlit app remains the stable
   fallback while V2 matures.
+- Fixed V2 question-bank coverage so Part 2 now samples from the full app set:
+  3 built-in cue cards plus 70 extended/PDF cue cards.
+- Added V2 `/api/question-bank` sanity endpoint and smoke-test checks for question-bank counts.
+- Improved V2 mobile composer behavior with friendlier transcription errors, cleaner recorder
+  reset after each answer, stable letter avatars, and an app-like internal chat scroll panel.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
@@ -69,7 +74,7 @@ Last updated: 2026-06-28
   - 32 Part 1 topics
   - 152 Part 1 questions
   - 73 Part 2 cue cards in app
-  - 371 Part 3 reference questions in bank
+  - 383 Part 3 reference questions in app
 - Added version ranges in `requirements.txt`.
 - Deployed through GitHub and Streamlit Cloud.
 
