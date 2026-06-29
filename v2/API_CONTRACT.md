@@ -150,6 +150,8 @@ Response:
 If the uploaded audio is empty or too short, the backend returns `400` with a
 short retry prompt. If the uploaded audio is larger than `MAX_AUDIO_UPLOAD_MB`,
 the backend returns `413` with a short user-safe error message.
+If the transcription provider fails, the backend returns `502` with a short
+user-safe message and does not expose provider/internal error details.
 
 ## POST /api/tts
 
@@ -168,6 +170,9 @@ Response:
 ```text
 audio/mpeg
 ```
+
+If voice generation fails, the backend returns `502` with a short user-safe
+message and does not expose provider/internal error details.
 
 ## POST /api/report
 
