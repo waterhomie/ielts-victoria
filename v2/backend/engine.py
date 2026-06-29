@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from collections import Counter
 from difflib import SequenceMatcher
 import io
 import os
@@ -637,6 +638,111 @@ def export_candidate_answer_log(session: ExamSession) -> str:
     return "\n".join(lines) or "No candidate answers recorded."
 
 
+def build_session_learning_summary(session: ExamSession) -> str:
+    answers = [item for item in session.candidate_answers if item.phase != "identity"]
+    stats = [item for item in session.answer_stats if item.phase != "identity"]
+    phases = {item.phase for item in answers}
+    answer_words = [
+        re.findall(r"[A-Za-z']+", item.answer.lower())
+        for item in answers
+    ]
+    flat_words = [word for words in answer_words for word in words]
+    total_words = len(flat_words)
+    average_words = round(total_words / len(answers), 1) if answers else 0
+    short_answers = sum(1 for words in answer_words if len(words) < 12)
+    wpm_values = [item.words_per_minute for item in stats if item.words_per_minute]
+    average_wpm = round(sum(wpm_values) / len(wpm_values), 1) if wpm_values else None
+
+    vague_terms = {
+        "good",
+        "nice",
+        "interesting",
+        "beautiful",
+        "thing",
+        "things",
+        "stuff",
+        "very",
+        "really",
+        "many",
+    }
+    vague_counter = Counter(word for word in flat_words if word in vague_terms)
+    repeated_vague = [word for word, count in vague_counter.most_common(5) if count >= 2]
+
+    grammar_watchlist = []
+    transcript = "\n".join(item.answer.lower() for item in answers)
+    grammar_patterns = [
+        (r"\bi am student\b|\bi'm student\b", "Use articles with singular countable nouns, e.g. 'I'm a student.'"),
+        (r"\bhave a work\b|\ba work\b", "Use 'a job' for one position; 'work' is usually uncountable."),
+        (r"\bmore better\b", "Avoid double comparatives such as 'more better'."),
+        (r"\bpeople is\b|\bthey is\b", "Watch subject-verb agreement with plural subjects."),
+        (r"\bmany thing\b|\bmany stuffs\b", "Use plural countable forms naturally, e.g. 'many things'."),
+    ]
+    for pattern, note in grammar_patterns:
+        if re.search(pattern, transcript) and note not in grammar_watchlist:
+            grammar_watchlist.append(note)
+
+    weaknesses = []
+    if answers and short_answers / len(answers) >= 0.4:
+        weaknesses.append(
+            "Answer development: many answers are under 12 words, so they need one reason, example, or contrast."
+        )
+    if repeated_vague:
+        weaknesses.append(
+            "Lexical precision: repeated broad words such as "
+            + ", ".join(repeated_vague)
+            + " should be replaced with more specific topic vocabulary."
+        )
+    if "part2_long" in phases and session.part2_audio_used and session.part2_duration < 60:
+        weaknesses.append("Part 2 stamina: the long turn is still short; aim for 90-120 seconds.")
+    elif "part2_long" not in phases:
+        weaknesses.append("Part 2 evidence is missing, so long-turn fluency is not fully tested yet.")
+    if "part3" not in phases:
+        weaknesses.append("Part 3 reasoning is under-tested; practise opinion + reason + example answers.")
+    if average_wpm and average_wpm < 90:
+        weaknesses.append(f"Fluency pace: average speed is about {average_wpm} WPM, which may sound hesitant.")
+    elif average_wpm and average_wpm > 180:
+        weaknesses.append(f"Fluency pace: average speed is about {average_wpm} WPM, which may sound rushed.")
+    if grammar_watchlist:
+        weaknesses.append("Grammar watchlist: " + grammar_watchlist[0])
+    if not weaknesses:
+        weaknesses.append(
+            "No dominant pattern was detected from the saved answers; keep focusing on fuller, more specific responses."
+        )
+
+    if answers and short_answers / len(answers) >= 0.4:
+        next_focus = "Extend short answers with a clear reason and one concrete example."
+    elif repeated_vague:
+        next_focus = "Replace vague adjectives with precise topic vocabulary and short examples."
+    elif "part3" not in phases:
+        next_focus = "Complete a Part 3 set and practise abstract comparisons."
+    elif "part2_long" in phases and session.part2_duration and session.part2_duration < 60:
+        next_focus = "Build one Part 2 answer to at least 90 seconds without stopping."
+    else:
+        next_focus = "Maintain the full test flow and collect more audio-timed answers."
+
+    evidence = (
+        f"{len(answers)} scored answers, {total_words} words, "
+        f"average {average_words} words per answer"
+    )
+    if average_wpm:
+        evidence += f", average {average_wpm} WPM"
+
+    return "\n\n".join(
+        [
+            "## Session learning summary",
+            f"**Evidence used:** {evidence}.",
+            "**Recurring weaknesses:**\n" + "\n".join(f"- {item}" for item in weaknesses[:4]),
+            "**Grammar watchlist:**\n"
+            + (
+                "\n".join(f"- {item}" for item in grammar_watchlist[:3])
+                if grammar_watchlist
+                else "- No repeated grammar pattern was confidently detected."
+            ),
+            f"**Next-session focus:** {next_focus}",
+        ]
+    )
+
+
 def build_fallback_report(session: ExamSession) -> str:
     answers = [item for item in session.candidate_answers if item.phase != "identity"]
     stats = [item for item in session.answer_stats if item.phase != "identity"]
@@ -684,6 +790,7 @@ def build_fallback_report(session: ExamSession) -> str:
             f"**Speaking pace:** {average_wpm} WPM." if average_wpm else "**Speaking pace:** not enough audio timing evidence.",
             "**Main issues noticed:**\n" + "\n".join(f"- {problem}" for problem in problems[:3]),
             "**Next-session practice tasks:**\n" + "\n".join(f"{index}. {task}" for index, task in enumerate(tasks, start=1)),
+            build_session_learning_summary(session),
         ]
     )
 
@@ -706,7 +813,7 @@ Raw answer log:
 {export_candidate_answer_log(session)}
 """
     try:
-        return call_model(
+        model_report = call_model(
             [
                 {
                     "role": "system",
@@ -715,5 +822,6 @@ Raw answer log:
                 {"role": "user", "content": prompt},
             ]
         )
+        return f"{model_report.strip()}\n\n---\n\n{build_session_learning_summary(session)}"
     except Exception:
         return build_fallback_report(session)
