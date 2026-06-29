@@ -48,6 +48,11 @@ export async function healthCheck() {
   return response.json();
 }
 
+export async function fetchPracticeOptions() {
+  const response = await request("/api/practice-options", { timeoutMs: 8000 });
+  return response.json();
+}
+
 export async function startSession(settings) {
   const response = await request("/api/sessions", {
     method: "POST",
