@@ -101,6 +101,27 @@ def main() -> None:
     session = answer2.json()["session"]
     assert session["messages"][-1]["role"] == "assistant"
 
+    prep_signal_seen = False
+    for _ in range(8):
+        next_part1 = client.post(
+            "/api/answer",
+            json={
+                "session": session,
+                "answer": "I usually give a short answer with one reason.",
+                "source": "text",
+                "duration": None,
+            },
+        )
+        assert next_part1.status_code == 200, next_part1.text
+        next_payload = next_part1.json()
+        session = next_payload["session"]
+        if next_payload["start_prep_timer"]:
+            prep_signal_seen = True
+            break
+
+    assert prep_signal_seen, session
+    assert session["phase"] == "part2_long", session
+
     report = client.post("/api/report", json={"session": session})
     assert report.status_code == 200, report.text
     report_text = report.json()["report"]
