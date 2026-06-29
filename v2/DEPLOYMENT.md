@@ -42,6 +42,8 @@ TRANSCRIPTION_MODEL=whisper-1
 CORS_ORIGINS=https://your-frontend-domain.com
 MAX_AUDIO_UPLOAD_MB=12
 RATE_LIMIT_PER_MINUTE=120
+MAX_ANSWER_CHARS=4000
+MAX_SESSION_MESSAGES=120
 ```
 
 ## Option B: one server serving both frontend and backend
@@ -55,9 +57,10 @@ Before sharing V2 publicly:
 
 1. Set backend `CORS_ORIGINS` to the real frontend domain instead of `*`.
 2. Adjust `RATE_LIMIT_PER_MINUTE` for your expected traffic and budget.
-3. Keep API keys only in backend environment variables.
-4. Test iPhone Safari and WeChat in-app browser microphone behavior.
-5. Add a fallback typed-answer path when microphone permission is denied.
+3. Adjust `MAX_ANSWER_CHARS` and `MAX_SESSION_MESSAGES` if you change test length.
+4. Keep API keys only in backend environment variables.
+5. Test iPhone Safari and WeChat in-app browser microphone behavior.
+6. Add a fallback typed-answer path when microphone permission is denied.
 
 ## Deployment smoke check
 
