@@ -34,27 +34,52 @@ Related docs:
 
 ```text
 v2/
-├─ backend/
-│  ├─ app.py              # FastAPI routes
-│  ├─ engine.py           # IELTS state machine and AI logic
-│  ├─ schemas.py          # Pydantic request/response/session models
-│  └─ requirements.txt    # Backend dependencies
-└─ frontend/
-   ├─ package.json        # React/Vite project
-   ├─ vite.config.js      # Local dev proxy to Python API
-   └─ src/
-      ├─ App.jsx          # iOS-style chat UI
-      ├─ api.js           # API client
-      ├─ recorder.js      # Browser WAV recorder
-      └─ styles.css       # Mobile-first visual system
+|-- backend/
+|   |-- app.py              # FastAPI routes
+|   |-- engine.py           # IELTS state machine and AI logic
+|   |-- schemas.py          # Pydantic request/response/session models
+|   |-- smoke_test.py       # API route smoke test
+|   `-- requirements.txt    # Backend dependencies
+`-- frontend/
+    |-- package.json        # React/Vite project
+    |-- vite.config.js      # Local dev proxy to Python API
+    `-- src/
+        |-- App.jsx         # iOS-style chat UI
+        |-- api.js          # API client
+        |-- recorder.js     # Browser WAV recorder
+        `-- styles.css      # Mobile-first visual system
 ```
 
 ## Local development
 
-Backend:
+Recommended Windows scripts from the repository root:
 
 ```powershell
-cd C:\Users\86158\Documents\雅思口语陪练
+.\v2\scripts\run_backend.ps1
+```
+
+Open a second terminal:
+
+```powershell
+.\v2\scripts\run_frontend.ps1
+```
+
+Run all local checks:
+
+```powershell
+.\v2\scripts\check_v2.ps1
+```
+
+If Windows blocks PowerShell scripts, run them with:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\v2\scripts\check_v2.ps1
+```
+
+Manual backend command:
+
+```powershell
+cd <repo-root>
 python -m pip install -r v2/backend/requirements.txt
 $env:API_KEY="your-key"
 $env:BASE_URL="https://api.gptsapi.net/v1"
@@ -62,25 +87,19 @@ $env:MODEL="gpt-5.4-mini"
 python -m uvicorn v2.backend.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Run the backend command from the repository root if Python cannot find the `v2` package:
+Manual backend smoke test:
 
 ```powershell
-python -m uvicorn v2.backend.app:app --reload --host 0.0.0.0 --port 8000
-```
-
-Backend smoke test:
-
-```powershell
-cd C:\Users\86158\Documents\雅思口语陪练
+cd <repo-root>
 python -m v2.backend.smoke_test
 ```
 
-Frontend:
+Manual frontend command:
 
 ```powershell
 cd v2/frontend
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 Open:
