@@ -11,6 +11,7 @@ Production backend environment variables that affect this contract:
 ```text
 CORS_ORIGINS=https://your-frontend-domain.com
 MAX_AUDIO_UPLOAD_MB=12
+RATE_LIMIT_PER_MINUTE=120
 ```
 
 ## GET /api/health
