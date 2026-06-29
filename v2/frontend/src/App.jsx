@@ -161,6 +161,7 @@ export default function App() {
   const currentPhase = phaseLabel(session?.phase);
   const canAnswer = Boolean(session?.test_active) && !busy && !recording;
   const canStartRecording = Boolean(session?.test_active) && !busy;
+  const canScoreNow = Boolean(session?.candidate_answers?.some((item) => item.phase !== "identity")) && !busy;
   const recordButtonDisabled = recording ? false : !canStartRecording;
   const recordButtonText = !session
     ? "Starting..."
@@ -374,6 +375,7 @@ export default function App() {
     if (!cleaned || !session) return;
     setError("");
     setBusy("thinking");
+    setReport("");
     setPrepEndsAt(null);
     stopCurrentAudio();
     resetComposerAfterAnswer();
@@ -457,6 +459,7 @@ export default function App() {
   async function requestReport() {
     if (!session) return;
     setError("");
+    stopCurrentAudio();
     setBusy("report");
     try {
       const data = await buildReport(session);
@@ -489,6 +492,11 @@ export default function App() {
           <button className="ghost-button" type="button" onClick={toggleAudioEnabled}>
             {audioEnabled ? "Sound on" : "Sound off"}
           </button>
+          {canScoreNow ? (
+            <button className="ghost-button" type="button" onClick={requestReport}>
+              Score now
+            </button>
+          ) : null}
           <button className="ghost-button" type="button" onClick={createFreshSession}>
             Restart
           </button>
