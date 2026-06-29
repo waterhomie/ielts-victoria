@@ -149,6 +149,8 @@ http://localhost:5173
 - Can download the final report and full transcript as plain text files.
 - Checks backend health on startup and turns timeout/backend failures into clear UI errors.
 - Includes a simple backend rate limit for public-deployment safety.
+- Saves the current practice session locally so a refresh can restore the conversation.
+- Local check scripts automatically load the cached backend dependencies under `tmp/v2_backend_deps` when present.
 
 ## Still to finish before replacing Streamlit
 
