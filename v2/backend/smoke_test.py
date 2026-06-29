@@ -70,6 +70,7 @@ def main() -> None:
         "/api/sessions",
         json={
             "practice_mode": True,
+            "practice_type": "full",
             "answer_expansion_mode": True,
             "voice_playback_enabled": False,
         },
@@ -77,6 +78,32 @@ def main() -> None:
     assert start.status_code == 200, start.text
     session = start.json()["session"]
     assert session["phase"] == "identity"
+
+    part2_start = client.post(
+        "/api/sessions",
+        json={
+            "practice_mode": True,
+            "practice_type": "part2",
+            "answer_expansion_mode": True,
+            "voice_playback_enabled": False,
+        },
+    )
+    assert part2_start.status_code == 200, part2_start.text
+    assert part2_start.json()["session"]["phase"] == "part2_long", part2_start.text
+
+    part3_start = client.post(
+        "/api/sessions",
+        json={
+            "practice_mode": True,
+            "practice_type": "part3",
+            "answer_expansion_mode": True,
+            "voice_playback_enabled": False,
+        },
+    )
+    assert part3_start.status_code == 200, part3_start.text
+    part3_session = part3_start.json()["session"]
+    assert part3_session["phase"] == "part3", part3_session
+    assert part3_session["part3_questions"], part3_session
 
     too_long_answer = client.post(
         "/api/answer",
