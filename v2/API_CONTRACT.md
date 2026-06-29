@@ -146,8 +146,9 @@ Response:
 }
 ```
 
-If the uploaded audio is larger than `MAX_AUDIO_UPLOAD_MB`, the backend returns
-`413` with a short user-safe error message.
+If the uploaded audio is empty or too short, the backend returns `400` with a
+short retry prompt. If the uploaded audio is larger than `MAX_AUDIO_UPLOAD_MB`,
+the backend returns `413` with a short user-safe error message.
 
 ## POST /api/tts
 
