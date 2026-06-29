@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+import v2.backend.app as app_module
 from v2.backend.app import app
 from v2.backend.engine import build_fallback_report
 from v2.backend.schemas import ExamSession
@@ -78,6 +79,32 @@ def main() -> None:
     fallback_text = build_fallback_report(ExamSession.model_validate(session))
     assert "rule-based fallback" in fallback_text, fallback_text
     assert "Next-session practice tasks" in fallback_text, fallback_text
+
+    app_module.REQUEST_LOG.clear()
+    original_rate_limit = app_module.RATE_LIMIT_PER_MINUTE
+    try:
+        app_module.RATE_LIMIT_PER_MINUTE = 1
+        first_limited = client.post(
+            "/api/sessions",
+            json={
+                "practice_mode": True,
+                "answer_expansion_mode": True,
+                "voice_playback_enabled": False,
+            },
+        )
+        assert first_limited.status_code == 200, first_limited.text
+        second_limited = client.post(
+            "/api/sessions",
+            json={
+                "practice_mode": True,
+                "answer_expansion_mode": True,
+                "voice_playback_enabled": False,
+            },
+        )
+        assert second_limited.status_code == 429, second_limited.text
+    finally:
+        app_module.RATE_LIMIT_PER_MINUTE = original_rate_limit
+        app_module.REQUEST_LOG.clear()
 
     print("V2 FastAPI smoke test passed")
     print(f"phase: {session['phase']}")
