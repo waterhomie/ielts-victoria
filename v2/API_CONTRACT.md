@@ -19,6 +19,28 @@ Response:
 }
 ```
 
+## GET /api/question-bank
+
+Returns the question-bank counts currently loaded by the backend. This is a
+small sanity-check endpoint for deployment and debugging.
+
+Response:
+
+```json
+{
+  "part1_topics": 32,
+  "part1_secondary_topics": 30,
+  "part1_total_questions": 152,
+  "part1_secondary_questions": 139,
+  "part1_identity_followup_questions": 13,
+  "part2_base_cards": 3,
+  "part2_extra_cards": 70,
+  "part2_total_cards": 73,
+  "part2_expected_cards": 73,
+  "part3_reference_questions": 383
+}
+```
+
 ## POST /api/sessions
 
 Starts a new IELTS speaking session.
@@ -164,4 +186,3 @@ The backend does not currently store sessions in a database. The frontend must:
 3. Replace local session state with the response session.
 
 This keeps V2 easy to deploy while the product is still changing quickly.
-
