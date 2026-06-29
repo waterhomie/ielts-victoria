@@ -11,6 +11,12 @@ def main() -> None:
     health = client.get("/api/health")
     assert health.status_code == 200, health.text
 
+    question_bank = client.get("/api/question-bank")
+    assert question_bank.status_code == 200, question_bank.text
+    bank = question_bank.json()
+    assert bank["part2_total_cards"] == 73, bank
+    assert bank["part2_total_cards"] == bank["part2_expected_cards"], bank
+
     start = client.post(
         "/api/sessions",
         json={
@@ -56,4 +62,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
