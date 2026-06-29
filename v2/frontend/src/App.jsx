@@ -35,6 +35,40 @@ function formatDuration(seconds) {
   return `${minutes}:${rest}`;
 }
 
+function safeDateStamp() {
+  return new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+}
+
+function downloadTextFile(filename, content) {
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function buildTranscriptText(session) {
+  const lines = [
+    "Examiner Victoria V2 - IELTS Speaking Transcript",
+    `Session ID: ${session?.session_id || "unknown"}`,
+    "",
+  ];
+
+  (session?.messages || []).forEach((message, index) => {
+    const speaker = message.role === "assistant" ? "Victoria" : "Candidate";
+    const phase = message.phase ? ` [${message.phase}]` : "";
+    lines.push(`${index + 1}. ${speaker}${phase}`);
+    lines.push(String(message.content || "").replace(/\n{3,}/g, "\n\n"));
+    lines.push("");
+  });
+
+  return lines.join("\n").trim() + "\n";
+}
+
 function friendlyError(err, fallback) {
   const message = err?.message || "";
   if (/microphone|permission|notallowed|denied/i.test(message)) {
@@ -309,6 +343,16 @@ export default function App() {
     }
   }
 
+  function downloadReport() {
+    if (!report) return;
+    downloadTextFile(`examiner-victoria-report-${safeDateStamp()}.txt`, report);
+  }
+
+  function downloadTranscript() {
+    if (!session) return;
+    downloadTextFile(`examiner-victoria-transcript-${safeDateStamp()}.txt`, buildTranscriptText(session));
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -354,6 +398,14 @@ export default function App() {
           <section className="report-card">
             <h2>Final report</h2>
             <RichMessage content={report} />
+            <div className="report-actions">
+              <button type="button" className="ghost-button" onClick={downloadReport}>
+                Download report
+              </button>
+              <button type="button" className="ghost-button" onClick={downloadTranscript}>
+                Download transcript
+              </button>
+            </div>
           </section>
         ) : null}
 
