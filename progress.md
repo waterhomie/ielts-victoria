@@ -102,6 +102,8 @@ Last updated: 2026-06-29
   `pnpm exec vite`, then verified the local stack on alternate ports.
 - Added a rule-based V2 session learning summary to every report/export, using only
   raw candidate answers and timing data to identify recurring weaknesses and the next-session focus.
+- Refactored the V2 answer state machine so identity, Part 1, Part 2 long-turn,
+  Part 2 follow-up, and Part 3 logic now live in smaller phase handlers while preserving behavior.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
@@ -220,13 +222,13 @@ It is not yet ready for:
 
 Recommended next task:
 
-> Refactor the V2 state machine into smaller phase handlers without changing behavior.
+> Add focused practice modes for Part 1 only, Part 2 only, and Part 3 only.
 
 Acceptance criteria:
 
-1. `process_answer` delegates identity, Part 1, Part 2, and Part 3 logic to smaller functions.
-2. Existing phase transitions and Part 3 dynamic-question behavior remain unchanged.
-3. The FastAPI smoke test still reaches Part 2 and verifies report output.
+1. The frontend lets the learner choose full mock, Part 1, Part 2, or Part 3 practice before starting.
+2. The backend session tracks the selected practice mode.
+3. Each focused mode starts at the appropriate phase with a clear stage label.
 4. `python -m py_compile` passes.
 5. `python validate_question_bank.py` passes.
 6. Frontend production build passes.
