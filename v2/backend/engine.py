@@ -174,6 +174,14 @@ def normalize_spoken_text_for_similarity(text: str) -> str:
         "it’s": "it is",
         "that's": "that is",
         "that’s": "that is",
+        "you're": "you are",
+        "you’re": "you are",
+        "i've": "i have",
+        "i’ve": "i have",
+        "i'd": "i would",
+        "i’d": "i would",
+        "i'll": "i will",
+        "i’ll": "i will",
     }
     for source, target in replacements.items():
         text = text.replace(source, target)
