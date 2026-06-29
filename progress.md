@@ -86,6 +86,8 @@ Last updated: 2026-06-29
   reused the local dependency path for faster developer restarts.
 - Added PowerShell helper-script parse checks to the V2 validation script so script syntax
   regressions are caught with the regular local checks.
+- Added a V2 Part 2 preparation countdown that is driven by the backend state transition
+  and preserved by the frontend's local session persistence.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
