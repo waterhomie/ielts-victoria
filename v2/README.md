@@ -84,6 +84,14 @@ Run all local checks:
 .\v2\scripts\check_v2.ps1
 ```
 
+Check a deployed frontend/backend pair:
+
+```powershell
+.\v2\scripts\check_deployed_v2.ps1 `
+  -BackendUrl "https://your-backend-domain.com" `
+  -FrontendUrl "https://your-frontend-domain.com"
+```
+
 If Windows blocks PowerShell scripts, run them with:
 
 ```powershell
@@ -155,6 +163,7 @@ http://localhost:5173
 - Python compile check for the V2 backend modules.
 - Backend engine smoke test: start session -> identity answer -> Part 1 answer.
 - Local stack helper smoke test on alternate ports: backend health and frontend HTTP status.
+- Deployment smoke-check helper for backend/frontend URLs.
 - FastAPI route smoke test with `python -m v2.backend.smoke_test`:
   `/api/health`, `/api/question-bank`, `/api/sessions`, `/api/answer`,
   report fallback behavior, and oversized audio rejection for `/api/transcribe`.
