@@ -70,6 +70,8 @@ Last updated: 2026-06-29
   lightweight SVG app icon.
 - Added V2 rule-based final-report fallback so `/api/report` returns useful practice
   guidance even when the model/API key is temporarily unavailable.
+- Added V2 deployed-environment smoke-check script for backend health, question-bank counts,
+  and frontend HTML availability.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
