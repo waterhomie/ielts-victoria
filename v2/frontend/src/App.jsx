@@ -7,6 +7,7 @@ const DEFAULT_SETTINGS = {
   answer_expansion_mode: true,
   voice_playback_enabled: true,
 };
+const STORAGE_KEY = "examiner-victoria-v2-state";
 
 function phaseLabel(phase) {
   const labels = {
@@ -146,6 +147,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [report, setReport] = useState("");
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [storageReady, setStorageReady] = useState(false);
   const chatPanelRef = useRef(null);
   const bottomRef = useRef(null);
   const recorderRef = useRef(null);
@@ -177,12 +179,48 @@ export default function App() {
   }, [session?.phase]);
 
   useEffect(() => {
-    createFreshSession();
+    let restored = false;
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const saved = raw ? JSON.parse(raw) : null;
+      if (saved?.session?.messages?.length) {
+        setSession(saved.session);
+        setReport(saved.report || "");
+        setAudioEnabled(saved.audioEnabled ?? true);
+        setReviewBeforeSend(Boolean(saved.reviewBeforeSend));
+        restored = true;
+      }
+    } catch (_) {
+      window.localStorage.removeItem(STORAGE_KEY);
+    }
+    setStorageReady(true);
+    if (!restored) {
+      createFreshSession();
+    } else {
+      setBusy("");
+    }
     return () => {
       recorderRef.current?.cleanup?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!storageReady) return;
+    if (!session) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    const saved = {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      session,
+      report,
+      audioEnabled,
+      reviewBeforeSend,
+    };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+  }, [audioEnabled, report, reviewBeforeSend, session, storageReady]);
 
   useEffect(() => {
     const panel = chatPanelRef.current;
@@ -214,6 +252,7 @@ export default function App() {
   async function createFreshSession() {
     recorderRef.current?.cleanup?.();
     recorderRef.current = null;
+    setSession(null);
     setRecording(false);
     setElapsed(0);
     setError("");
