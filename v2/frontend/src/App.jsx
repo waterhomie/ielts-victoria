@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildReport, healthCheck, sendAnswer, startSession, synthesizeSpeech, transcribeAudio } from "./api.js";
+import {
+  buildReport,
+  fetchPracticeOptions,
+  healthCheck,
+  sendAnswer,
+  startSession,
+  synthesizeSpeech,
+  transcribeAudio,
+} from "./api.js";
 import { WavRecorder } from "./recorder.js";
 
 const DEFAULT_SETTINGS = {
@@ -160,6 +168,9 @@ export default function App() {
   const [report, setReport] = useState("");
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [practiceType, setPracticeType] = useState("full");
+  const [practiceOptions, setPracticeOptions] = useState({ part1_topics: [], cue_cards: [] });
+  const [selectedPart1Topic, setSelectedPart1Topic] = useState("");
+  const [selectedCueCardTitle, setSelectedCueCardTitle] = useState("");
   const [storageReady, setStorageReady] = useState(false);
   const [prepEndsAt, setPrepEndsAt] = useState(null);
   const [clockTick, setClockTick] = useState(Date.now());
@@ -209,6 +220,8 @@ export default function App() {
         setReport(saved.report || "");
         setAudioEnabled(saved.audioEnabled ?? true);
         setPracticeType(saved.practiceType || saved.session.practice_type || "full");
+        setSelectedPart1Topic(saved.selectedPart1Topic || "");
+        setSelectedCueCardTitle(saved.selectedCueCardTitle || "");
         setReviewBeforeSend(Boolean(saved.reviewBeforeSend));
         if (saved.prepEndsAt && saved.prepEndsAt > Date.now()) {
           setPrepEndsAt(saved.prepEndsAt);
@@ -236,6 +249,25 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    fetchPracticeOptions()
+      .then((options) => {
+        if (!cancelled) {
+          setPracticeOptions({
+            part1_topics: options.part1_topics || [],
+            cue_cards: options.cue_cards || [],
+          });
+        }
+      })
+      .catch(() => {
+        // Practice can still start with random topics if the option endpoint is unavailable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!storageReady) return;
     try {
       if (!session) {
@@ -249,6 +281,8 @@ export default function App() {
         report,
         audioEnabled,
         practiceType,
+        selectedPart1Topic,
+        selectedCueCardTitle,
         reviewBeforeSend,
         prepEndsAt,
       };
@@ -257,7 +291,17 @@ export default function App() {
       // Storage can be blocked in private mode or embedded mobile WebViews.
       // The app should still work; it will just skip refresh recovery.
     }
-  }, [audioEnabled, practiceType, prepEndsAt, report, reviewBeforeSend, session, storageReady]);
+  }, [
+    audioEnabled,
+    practiceType,
+    prepEndsAt,
+    report,
+    reviewBeforeSend,
+    selectedCueCardTitle,
+    selectedPart1Topic,
+    session,
+    storageReady,
+  ]);
 
   useEffect(() => {
     const panel = chatPanelRef.current;
@@ -312,11 +356,17 @@ export default function App() {
     audioUrlRef.current = "";
   }
 
-  async function createFreshSession(nextPracticeType = practiceType) {
+  async function createFreshSession(
+    nextPracticeType = practiceType,
+    nextPart1Topic = selectedPart1Topic,
+    nextCueCardTitle = selectedCueCardTitle,
+  ) {
     recorderRef.current?.cleanup?.();
     recorderRef.current = null;
     stopCurrentAudio();
     setPracticeType(nextPracticeType);
+    setSelectedPart1Topic(nextPart1Topic);
+    setSelectedCueCardTitle(nextCueCardTitle);
     setSession(null);
     setRecording(false);
     setElapsed(0);
@@ -330,6 +380,8 @@ export default function App() {
       const data = await startSession({
         ...DEFAULT_SETTINGS,
         practice_type: nextPracticeType,
+        part1_topic: nextPart1Topic || null,
+        cue_card_title: nextCueCardTitle || null,
       });
       setSession(data.session);
       setAudioEnabled(data.session.voice_playback_enabled);
@@ -392,6 +444,18 @@ export default function App() {
     const nextPracticeType = event.target.value;
     if (nextPracticeType === practiceType && session) return;
     createFreshSession(nextPracticeType);
+  }
+
+  function changePart1Topic(event) {
+    const nextTopic = event.target.value;
+    setSelectedPart1Topic(nextTopic);
+    createFreshSession(practiceType, nextTopic, selectedCueCardTitle);
+  }
+
+  function changeCueCardTitle(event) {
+    const nextTitle = event.target.value;
+    setSelectedCueCardTitle(nextTitle);
+    createFreshSession(practiceType, selectedPart1Topic, nextTitle);
   }
 
   function resetComposerAfterAnswer() {
@@ -552,6 +616,40 @@ export default function App() {
           <div className="prep-timer" aria-live="polite">
             Part 2 prep time <strong>{formatDuration(prepRemaining)}</strong>
           </div>
+        ) : null}
+        {practiceType === "part1" && practiceOptions.part1_topics.length ? (
+          <label className="topic-select">
+            <span>Topic</span>
+            <select
+              value={selectedPart1Topic}
+              onChange={changePart1Topic}
+              disabled={Boolean(busy) || recording}
+            >
+              <option value="">Random topic</option>
+              {practiceOptions.part1_topics.map((topic) => (
+                <option key={topic} value={topic}>
+                  {topic}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {(practiceType === "part2" || practiceType === "part3") && practiceOptions.cue_cards.length ? (
+          <label className="topic-select">
+            <span>Cue card</span>
+            <select
+              value={selectedCueCardTitle}
+              onChange={changeCueCardTitle}
+              disabled={Boolean(busy) || recording}
+            >
+              <option value="">Random cue card</option>
+              {practiceOptions.cue_cards.map((card) => (
+                <option key={card.title} value={card.title}>
+                  {card.title}
+                </option>
+              ))}
+            </select>
+          </label>
         ) : null}
         <div className="progress-track">
           <div style={{ width: `${stageProgress}%` }} />
