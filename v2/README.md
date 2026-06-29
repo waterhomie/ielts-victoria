@@ -117,6 +117,7 @@ $env:MAX_AUDIO_UPLOAD_MB="12"
 $env:RATE_LIMIT_PER_MINUTE="120"
 $env:MAX_ANSWER_CHARS="4000"
 $env:MAX_SESSION_MESSAGES="120"
+$env:MAX_TTS_CHARS="1200"
 python -m uvicorn v2.backend.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -159,7 +160,7 @@ http://localhost:5173
 - Keeps voice playback single-channel so restarting or answering stops any previous prompt audio.
 - Checks backend health on startup and turns timeout/backend failures into clear UI errors.
 - Includes a simple backend rate limit for public-deployment safety.
-- Limits oversized answers/sessions before they reach the model backend.
+- Limits oversized answers, sessions, and TTS requests before they reach provider backends.
 - Saves the current practice session locally on a best-effort basis so a refresh can restore the conversation.
 - Local check scripts automatically load the cached backend dependencies under `tmp/v2_backend_deps` when present.
 
