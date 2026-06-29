@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 
 Role = Literal["assistant", "user", "system"]
+PracticeType = Literal["full", "part1", "part2", "part3"]
 Phase = Literal[
     "identity",
     "part1",
@@ -46,6 +47,7 @@ class ExamSession(BaseModel):
     test_active: bool = True
 
     practice_mode: bool = True
+    practice_type: PracticeType = "full"
     answer_expansion_mode: bool = True
     voice_playback_enabled: bool = True
     speak_full_reply: bool = False
@@ -73,6 +75,7 @@ class ExamSession(BaseModel):
 
 class StartSessionRequest(BaseModel):
     practice_mode: bool = True
+    practice_type: PracticeType = "full"
     answer_expansion_mode: bool = True
     voice_playback_enabled: bool = True
 
