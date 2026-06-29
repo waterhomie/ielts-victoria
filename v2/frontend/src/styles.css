@@ -465,28 +465,38 @@ button:not(:disabled):active {
   }
 
   .mode-button {
-    min-width: 54px;
-    padding: 0 10px;
+    min-width: 50px;
+    padding: 0 9px;
   }
 
   .record-button {
     font-size: 16px;
-    padding: 0 12px;
+    padding: 0 10px;
   }
 
   .timer {
-    min-width: 42px;
+    min-width: 38px;
     font-size: 13px;
   }
 
   .review-toggle {
-    max-width: 24px;
-    overflow: hidden;
-    gap: 0;
+    min-width: 58px;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.58);
+    box-shadow: inset 0 0 0 1px rgba(120, 120, 128, 0.12);
+  }
+
+  .review-toggle input {
+    width: 15px;
+    height: 15px;
   }
 
   .review-toggle span {
-    display: none;
+    display: inline;
+    font-size: 12px;
   }
 
   .score-button {
