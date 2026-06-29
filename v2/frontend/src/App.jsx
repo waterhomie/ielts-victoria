@@ -148,6 +148,8 @@ export default function App() {
   const [report, setReport] = useState("");
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [storageReady, setStorageReady] = useState(false);
+  const [prepEndsAt, setPrepEndsAt] = useState(null);
+  const [clockTick, setClockTick] = useState(Date.now());
   const chatPanelRef = useRef(null);
   const bottomRef = useRef(null);
   const recorderRef = useRef(null);
@@ -167,6 +169,9 @@ export default function App() {
         ? "Tap to send"
         : "Tap to record"
       : "Test complete";
+  const prepRemaining = prepEndsAt
+    ? Math.max(0, Math.ceil((prepEndsAt - clockTick) / 1000))
+    : 0;
 
   const stageProgress = useMemo(() => {
     const map = {
@@ -190,6 +195,9 @@ export default function App() {
         setReport(saved.report || "");
         setAudioEnabled(saved.audioEnabled ?? true);
         setReviewBeforeSend(Boolean(saved.reviewBeforeSend));
+        if (saved.prepEndsAt && saved.prepEndsAt > Date.now()) {
+          setPrepEndsAt(saved.prepEndsAt);
+        }
         restored = true;
       }
     } catch (_) {
@@ -226,13 +234,14 @@ export default function App() {
         report,
         audioEnabled,
         reviewBeforeSend,
+        prepEndsAt,
       };
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
     } catch (_) {
       // Storage can be blocked in private mode or embedded mobile WebViews.
       // The app should still work; it will just skip refresh recovery.
     }
-  }, [audioEnabled, report, reviewBeforeSend, session, storageReady]);
+  }, [audioEnabled, prepEndsAt, report, reviewBeforeSend, session, storageReady]);
 
   useEffect(() => {
     const panel = chatPanelRef.current;
@@ -250,6 +259,18 @@ export default function App() {
     }, 120);
     return () => window.clearInterval(timer);
   }, [recording]);
+
+  useEffect(() => {
+    if (!prepEndsAt) return undefined;
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      setClockTick(now);
+      if (prepEndsAt <= now) {
+        setPrepEndsAt(null);
+      }
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [prepEndsAt]);
 
   useEffect(() => {
     function cleanupRecorder() {
@@ -285,6 +306,7 @@ export default function App() {
     setError("");
     setReport("");
     setDraft("");
+    setPrepEndsAt(null);
     setBusy("starting");
     try {
       await healthCheck();
@@ -352,6 +374,7 @@ export default function App() {
     if (!cleaned || !session) return;
     setError("");
     setBusy("thinking");
+    setPrepEndsAt(null);
     stopCurrentAudio();
     resetComposerAfterAnswer();
     try {
@@ -362,6 +385,11 @@ export default function App() {
         duration,
       });
       setSession(data.session);
+      if (data.start_prep_timer) {
+        const endsAt = Date.now() + 60_000;
+        setClockTick(Date.now());
+        setPrepEndsAt(endsAt);
+      }
       await playSpeech(data.spoken_text);
     } catch (err) {
       setError(friendlyError(err, "Victoria could not respond."));
@@ -472,6 +500,11 @@ export default function App() {
           <span className="stage-pill">{currentPhase}</span>
           <p>{session?.phase === "part3" ? "Dynamic follow-up loop" : "Structured IELTS flow"}</p>
         </div>
+        {prepRemaining > 0 ? (
+          <div className="prep-timer" aria-live="polite">
+            Part 2 prep time <strong>{formatDuration(prepRemaining)}</strong>
+          </div>
+        ) : null}
         <div className="progress-track">
           <div style={{ width: `${stageProgress}%` }} />
         </div>
