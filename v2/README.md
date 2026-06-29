@@ -170,7 +170,8 @@ http://localhost:5173
 - Deployment smoke-check helper for backend/frontend URLs.
 - FastAPI route smoke test with `python -m v2.backend.smoke_test`:
   `/api/health`, `/api/question-bank`, `/api/sessions`, `/api/answer`,
-  report fallback behavior, and oversized audio rejection for `/api/transcribe`.
+  report fallback behavior, oversized audio rejection for `/api/transcribe`,
+  and user-safe 502 messages for transcription/TTS provider failures.
 - Frontend dependency install with pnpm.
 - Frontend production build with Vite.
 - Question-bank validation from the existing app.
