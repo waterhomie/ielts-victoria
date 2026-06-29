@@ -191,7 +191,11 @@ export default function App() {
         restored = true;
       }
     } catch (_) {
-      window.localStorage.removeItem(STORAGE_KEY);
+      try {
+        window.localStorage.removeItem(STORAGE_KEY);
+      } catch (_) {
+        // Ignore storage failures in restricted/private browsing contexts.
+      }
     }
     setStorageReady(true);
     if (!restored) {
@@ -207,19 +211,24 @@ export default function App() {
 
   useEffect(() => {
     if (!storageReady) return;
-    if (!session) {
-      window.localStorage.removeItem(STORAGE_KEY);
-      return;
+    try {
+      if (!session) {
+        window.localStorage.removeItem(STORAGE_KEY);
+        return;
+      }
+      const saved = {
+        version: 1,
+        savedAt: new Date().toISOString(),
+        session,
+        report,
+        audioEnabled,
+        reviewBeforeSend,
+      };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+    } catch (_) {
+      // Storage can be blocked in private mode or embedded mobile WebViews.
+      // The app should still work; it will just skip refresh recovery.
     }
-    const saved = {
-      version: 1,
-      savedAt: new Date().toISOString(),
-      session,
-      report,
-      audioEnabled,
-      reviewBeforeSend,
-    };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
   }, [audioEnabled, report, reviewBeforeSend, session, storageReady]);
 
   useEffect(() => {
