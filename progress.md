@@ -152,6 +152,7 @@ The current product is suitable for:
 - Personal IELTS speaking practice
 - Portfolio demonstration
 - Small user testing
+- V2 private beta testing after separate frontend/backend deployment
 
 It is not yet ready for:
 
@@ -159,10 +160,21 @@ It is not yet ready for:
 - WeChat Mini Program release
 - Large-scale user data storage
 - Formal pronunciation assessment
+- Replacing the public Streamlit fallback before mobile microphone testing
+
+## V2 deployment handoff checklist
+
+1. Deploy the FastAPI backend with API secrets only in backend environment variables.
+2. Deploy the React frontend with `VITE_API_BASE` pointing to the backend.
+3. Restrict backend `CORS_ORIGINS` to the deployed frontend domain.
+4. Run `v2/scripts/check_deployed_v2.ps1` against both services.
+5. Complete one desktop full-flow test through final report generation.
+6. Complete iPhone Safari, Android Chrome, and WeChat in-app-browser recording tests.
+7. Keep the Streamlit version public until the V2 checks above pass.
 
 ## Current risks
 
-- `process_candidate_answer` is still large and should eventually be split into stage-specific handlers.
+- The state machine has been split into phase handlers, but more unit-level tests would make future changes safer.
 - Part 3 dynamic generation now depends on model quality; fallback bank questions are used when generation fails.
 - The app now uses a custom frontend voice composer. Further polish may still be needed after live browser testing, especially around microphone permissions and mobile touch behavior.
 - There is no persistent learner profile, so the app does not remember weaknesses across sessions.
@@ -174,48 +186,26 @@ It is not yet ready for:
 
 ## High-priority backlog
 
-1. Learner profile / session learning summary
-   - Summarize recurring weaknesses after each practice session.
-   - Save:
-     - common grammar issues
-     - vague vocabulary
-     - weak answer development
-     - Part 3 reasoning problems
-     - next-session focus
-
-2. Refactor state machine
-   - Split `process_candidate_answer` into:
-     - `handle_identity`
-     - `handle_part1`
-     - `handle_part2_long`
-     - `handle_part2_followup`
-     - `handle_part3`
-
-3. README / portfolio polish
+1. README / portfolio polish
    - Add project overview.
    - Add screenshots.
    - Add feature list.
    - Add technical architecture.
    - Add development-loop explanation.
 
-4. GitHub Actions validation
+2. GitHub Actions validation
    - Run Python syntax check.
    - Run `validate_question_bank.py`.
    - Prevent broken changes from being deployed.
 
 ## Medium-priority backlog
 
-- Add practice-history export format.
-- Add report markdown formatting improvements.
-- Add selectable practice types:
-  - Full mock test
-  - Part 1 only
-  - Part 2 only
-  - Part 3 only
-- Add topic/category selection.
-- Add better Part 2 timer behavior.
-- Add more visible loading states.
-- Add clearer error messages for API failure.
+- Live mobile QA for iPhone Safari, Android Chrome, and WeChat in-app-browser recording.
+- Deploy V2 frontend and backend as separate services and run the deployed smoke check.
+- Add screenshots/GIFs for portfolio and README.
+- Add optional persistent practice history once accounts or local export strategy is decided.
+- Add a production-ready auth/rate-limit strategy before public monetization.
+- Add optional model/provider configuration UI for advanced users.
 - Add optional model selector through Streamlit Secrets or sidebar.
 
 ## Low-priority / future product ideas
