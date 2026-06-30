@@ -181,6 +181,9 @@ function buildPracticeRecordText(session, report) {
 
 function friendlyError(err, fallback) {
   const message = err?.message || "";
+  if (/secure HTTPS|secure context|local network HTTP|isSecureContext/i.test(message)) {
+    return "iPhone Safari needs HTTPS before it can ask for microphone permission. This local Wi‑Fi address can be used for text testing, but voice recording needs an HTTPS preview or public deployment.";
+  }
   if (/microphone|permission|notallowed|denied/i.test(message)) {
     return "Microphone access was blocked. Please allow microphone permission, or switch to Text.";
   }
