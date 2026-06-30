@@ -500,6 +500,25 @@ export default function App() {
     return map[session?.phase] || 8;
   }, [session?.phase]);
 
+  const sessionStats = useMemo(() => {
+    const answers = (session?.candidate_answers || []).filter((item) => item.phase !== "identity");
+    const stats = (session?.answer_stats || []).filter((item) => item.phase !== "identity");
+    const totalSeconds = stats.reduce((sum, item) => sum + (Number(item.duration) || 0), 0);
+    const wpmValues = stats
+      .map((item) => Number(item.words_per_minute))
+      .filter((value) => Number.isFinite(value) && value > 0);
+    const averageWpm = wpmValues.length
+      ? Math.round(wpmValues.reduce((sum, value) => sum + value, 0) / wpmValues.length)
+      : null;
+    return {
+      answered: answers.length,
+      audio: stats.filter((item) => item.source === "audio").length,
+      text: stats.filter((item) => item.source === "text").length,
+      totalDuration: formatDuration(totalSeconds),
+      averageWpm: averageWpm ? `${averageWpm}` : "—",
+    };
+  }, [session?.answer_stats, session?.candidate_answers]);
+
   useEffect(() => {
     let restored = false;
     try {
@@ -953,6 +972,26 @@ export default function App() {
               ))}
             </select>
           </label>
+        ) : null}
+        {session ? (
+          <div className="session-insights" aria-label="Current practice summary">
+            <div>
+              <strong>{sessionStats.answered}</strong>
+              <span>answers</span>
+            </div>
+            <div>
+              <strong>{sessionStats.averageWpm}</strong>
+              <span>avg WPM</span>
+            </div>
+            <div>
+              <strong>{sessionStats.totalDuration}</strong>
+              <span>timed</span>
+            </div>
+            <div>
+              <strong>{sessionStats.audio}/{sessionStats.text}</strong>
+              <span>voice/text</span>
+            </div>
+          </div>
         ) : null}
         <div className="progress-track">
           <div style={{ width: `${stageProgress}%` }} />
