@@ -62,6 +62,7 @@ $pythonPath = $pythonPathParts -join ";"
 
 $backendCommand = @"
 `$env:PYTHONPATH = '$pythonPath'
+`$env:CORS_ORIGINS = 'http://127.0.0.1:$FrontendPort,http://localhost:$FrontendPort'
 Set-Location -LiteralPath '$repoRoot'
 & '$python' -m uvicorn v2.backend.app:app --host 127.0.0.1 --port $BackendPort
 "@
@@ -79,6 +80,7 @@ $frontendCommand = @"
 if (Test-Path -LiteralPath '$nodeBin') {
     `$env:PATH = '$nodeBin;' + `$env:PATH
 }
+`$env:VITE_API_BASE = 'http://127.0.0.1:$BackendPort'
 Set-Location -LiteralPath '$frontendRoot'
 & '$pnpm' exec vite --host 127.0.0.1 --port $FrontendPort
 "@
