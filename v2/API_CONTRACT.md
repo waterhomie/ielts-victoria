@@ -26,9 +26,25 @@ Response:
 ```json
 {
   "status": "ok",
-  "app": "examiner-victoria-v2"
+  "app": "examiner-victoria-v2",
+  "config": {
+    "api_key_configured": true,
+    "base_url": "https://api.gptsapi.net/v1",
+    "model": "gpt-5.4-mini",
+    "transcription_model": "whisper-1"
+  },
+  "limits": {
+    "max_audio_upload_mb": 12,
+    "rate_limit_per_minute": 120,
+    "max_answer_chars": 4000,
+    "max_session_messages": 120,
+    "max_tts_chars": 1200
+  },
+  "cors_origins": ["https://your-frontend-domain.com"]
 }
 ```
+
+`api_key_configured` is a boolean only; the backend never returns the actual API key.
 
 ## GET /api/question-bank
 
