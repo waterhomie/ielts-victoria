@@ -162,6 +162,7 @@ http://localhost:5173
 - Can download the final report, full transcript, and a combined practice record as plain text files.
 - Renders report headings, lists, quotes, and inline examples cleanly in the React UI.
 - Splits generated reports into focused cards for score, issues, examples, next tasks, and session summary.
+- Adds quick navigation chips for long generated reports without changing downloaded text files.
 - Keeps voice playback single-channel so restarting or answering stops any previous prompt audio.
 - Checks backend health on startup and turns timeout/backend failures into clear UI errors.
 - Includes a simple backend rate limit for public-deployment safety.
