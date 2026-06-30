@@ -24,6 +24,15 @@ if ($health.status -ne "ok") {
     throw "Backend health check returned unexpected status: $($health | ConvertTo-Json -Compress)"
 }
 Write-Host "Backend health: ok" -ForegroundColor Green
+if ($null -ne $health.config) {
+    if (-not $health.config.api_key_configured) {
+        throw "Backend API_KEY is not configured. Set API_KEY before public testing."
+    }
+    Write-Host "Backend model: $($health.config.model), transcription: $($health.config.transcription_model)" -ForegroundColor Green
+}
+if ($null -ne $health.limits) {
+    Write-Host "Backend limits: audio $($health.limits.max_audio_upload_mb) MB, rate $($health.limits.rate_limit_per_minute)/min" -ForegroundColor Green
+}
 
 $corsHeaders = @{
     Origin = $frontend
