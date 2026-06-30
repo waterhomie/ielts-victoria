@@ -110,6 +110,8 @@ Last updated: 2026-06-29
   a new `/api/practice-options` endpoint while keeping random selection as the default.
 - Added a V2 practice-record export that combines session metadata, selected topic/cue card,
   timing/WPM stats, question-by-question answers, the full transcript, and any generated report.
+- Improved V2 report formatting with structured Markdown output, richer React rendering for
+  headings/lists/quotes/inline examples, and smoke coverage for the fallback report structure.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
@@ -228,13 +230,13 @@ It is not yet ready for:
 
 Recommended next task:
 
-> Add report markdown formatting improvements.
+> Add focused report/action cards.
 
 Acceptance criteria:
 
-1. Report headings, lists, and quoted improved answers render cleanly in the React UI.
-2. Markdown-like report text remains readable in downloaded plain text.
-3. The report screen stays compact on mobile.
+1. The report screen separates score, recurring issues, corrected examples, and next tasks visually.
+2. It still works for both model reports and rule-based fallback reports.
+3. The plain-text downloads remain unchanged and readable.
 4. `python -m py_compile` passes.
 5. `python validate_question_bank.py` passes.
 6. Frontend production build passes.
