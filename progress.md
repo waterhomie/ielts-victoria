@@ -129,6 +129,8 @@ Last updated: 2026-06-29
   committing real API keys.
 - Added safe V2 backend health diagnostics for model/configuration/limits and strengthened
   the deployed smoke check so missing `API_KEY` is caught before public testing.
+- Fixed a frontend startup/input blocker caused by a corrupted average-WPM placeholder and
+  added a preview-mode notice when the backend is running without `API_KEY`.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
