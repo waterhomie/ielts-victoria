@@ -808,6 +808,14 @@ export default function App() {
     await submitAnswer(draft, "text", null);
   }
 
+  function handleTextComposerKeyDown(event) {
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent?.isComposing) return;
+    event.preventDefault();
+    if (draft.trim() && canAnswer) {
+      void submitAnswer(draft, "text", null);
+    }
+  }
+
   async function toggleRecording() {
     if (busy) return;
     setError("");
@@ -1071,12 +1079,15 @@ export default function App() {
             </div>
           ) : (
             <form className="text-composer" onSubmit={submitTypedAnswer}>
-              <input
+              <textarea
                 value={draft}
                 disabled={!canAnswer && !draft}
                 placeholder="Type your answer..."
                 autoComplete="off"
+                rows={1}
+                aria-label="Type your answer. Press Enter to send, Shift Enter for a new line."
                 onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={handleTextComposerKeyDown}
               />
               <button type="submit" disabled={!draft.trim() || Boolean(busy)}>
                 Send
