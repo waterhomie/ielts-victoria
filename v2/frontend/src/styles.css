@@ -423,9 +423,41 @@ blockquote {
   margin-top: 12px;
 }
 
+.report-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0 8px;
+  scrollbar-width: none;
+}
+
+.report-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.report-nav button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 11px;
+  border: 1px solid rgba(120, 120, 128, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #3a3a3c;
+  font-size: 0.84rem;
+  font-weight: 800;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+}
+
 .report-section {
   position: relative;
   overflow: hidden;
+  scroll-margin-top: 14px;
   padding: 14px;
   border: 1px solid rgba(120, 120, 128, 0.16);
   border-radius: 18px;
@@ -732,6 +764,12 @@ button:not(:disabled):active {
   .report-section {
     padding: 12px;
     border-radius: 16px;
+  }
+
+  .report-nav button {
+    min-height: 30px;
+    padding: 0 10px;
+    font-size: 0.78rem;
   }
 
   .report-section-header {
