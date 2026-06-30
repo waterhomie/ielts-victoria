@@ -191,7 +191,7 @@ function friendlyError(err, fallback) {
   if (/too long|too large|session is too large|voice playback text/i.test(message)) {
     return message;
   }
-  if (/transcription|audio|whisper|duration|500|502/i.test(message)) {
+  if (/transcription|audio|whisper|duration/i.test(message)) {
     return "Audio transcription is temporarily unavailable. You can switch to Text and type your answer.";
   }
   if (/not reachable|VITE_API_BASE|backend service/i.test(message)) {
@@ -470,6 +470,7 @@ export default function App() {
   const audioRef = useRef(null);
   const audioUrlRef = useRef("");
   const startedAtRef = useRef(0);
+  const startupRecoveryAttemptedRef = useRef(false);
 
   const messages = session?.messages || [];
   const currentPhase = phaseLabel(session?.phase);
@@ -589,6 +590,13 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!storageReady || session || busy || startupRecoveryAttemptedRef.current) return;
+    startupRecoveryAttemptedRef.current = true;
+    createFreshSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, session, storageReady]);
 
   useEffect(() => {
     if (!storageReady) return;
