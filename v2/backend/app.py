@@ -12,6 +12,7 @@ from .engine import (
     build_report,
     get_practice_options,
     get_question_bank_summary,
+    get_runtime_config_summary,
     process_answer,
     start_session,
     synthesize_speech,
@@ -122,8 +123,20 @@ app.add_middleware(
 
 
 @app.get("/api/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "app": "examiner-victoria-v2"}
+def health() -> dict[str, object]:
+    return {
+        "status": "ok",
+        "app": "examiner-victoria-v2",
+        "config": get_runtime_config_summary(),
+        "limits": {
+            "max_audio_upload_mb": round(MAX_AUDIO_UPLOAD_BYTES / 1024 / 1024, 2),
+            "rate_limit_per_minute": RATE_LIMIT_PER_MINUTE,
+            "max_answer_chars": MAX_ANSWER_CHARS,
+            "max_session_messages": MAX_SESSION_MESSAGES,
+            "max_tts_chars": MAX_TTS_CHARS,
+        },
+        "cors_origins": get_cors_origins(),
+    }
 
 
 @app.get("/api/question-bank")
