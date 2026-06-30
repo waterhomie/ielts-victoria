@@ -24,6 +24,20 @@ function Test-PortFree {
     return -not $connection
 }
 
+function Get-LanIPv4Address {
+    $candidates = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.IPAddress -notlike "127.*" -and
+            $_.IPAddress -notlike "169.254.*" -and
+            $_.PrefixOrigin -ne "WellKnown"
+        } |
+        Sort-Object -Property @{
+            Expression = { if ($_.InterfaceAlias -match "Wi-Fi|WLAN|无线") { 0 } else { 1 } }
+        }, InterfaceMetric
+
+    return ($candidates | Select-Object -First 1).IPAddress
+}
+
 if (-not (Test-PortFree $BackendPort)) {
     throw "Backend port $BackendPort is already in use. Stop that process or choose another -BackendPort."
 }
@@ -36,6 +50,11 @@ Write-Host "Examiner Victoria V2 local stack" -ForegroundColor Cyan
 Write-Host "Repository: $repoRoot"
 Write-Host "Backend:   http://127.0.0.1:$BackendPort"
 Write-Host "Frontend:  http://127.0.0.1:$FrontendPort"
+
+$lanIp = Get-LanIPv4Address
+if ($lanIp) {
+    Write-Host "Phone URL: http://$lanIp`:$FrontendPort" -ForegroundColor Green
+}
 
 if (-not $SkipInstall) {
     Write-Host "Installing backend/frontend dependencies..." -ForegroundColor Cyan
@@ -62,9 +81,9 @@ $pythonPath = $pythonPathParts -join ";"
 
 $backendCommand = @"
 `$env:PYTHONPATH = '$pythonPath'
-`$env:CORS_ORIGINS = 'http://127.0.0.1:$FrontendPort,http://localhost:$FrontendPort'
+`$env:CORS_ORIGINS = 'http://127.0.0.1:$FrontendPort,http://localhost:$FrontendPort$(if ($lanIp) { ",http://$lanIp`:$FrontendPort" } else { "" })'
 Set-Location -LiteralPath '$repoRoot'
-& '$python' -m uvicorn v2.backend.app:app --host 127.0.0.1 --port $BackendPort
+& '$python' -m uvicorn v2.backend.app:app --host 0.0.0.0 --port $BackendPort
 "@
 
 $backendProcess = Start-Process `
@@ -80,9 +99,9 @@ $frontendCommand = @"
 if (Test-Path -LiteralPath '$nodeBin') {
     `$env:PATH = '$nodeBin;' + `$env:PATH
 }
-`$env:VITE_API_BASE = 'http://127.0.0.1:$BackendPort'
+`$env:VITE_API_BASE = 'http://$(if ($lanIp) { $lanIp } else { "127.0.0.1" }):$BackendPort'
 Set-Location -LiteralPath '$frontendRoot'
-& '$pnpm' exec vite --host 127.0.0.1 --port $FrontendPort
+& '$pnpm' exec vite --host 0.0.0.0 --port $FrontendPort
 "@
 
 $frontendProcess = Start-Process `
@@ -120,3 +139,7 @@ try {
 }
 
 Write-Host "Open http://127.0.0.1:$FrontendPort"
+if ($lanIp) {
+    Write-Host "Open on your phone: http://$lanIp`:$FrontendPort" -ForegroundColor Green
+    Write-Host "If the phone cannot connect, allow Node.js/Python through Windows Firewall for private networks." -ForegroundColor Yellow
+}
