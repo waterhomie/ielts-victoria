@@ -460,6 +460,7 @@ export default function App() {
   const [practiceOptions, setPracticeOptions] = useState({ part1_topics: [], cue_cards: [] });
   const [selectedPart1Topic, setSelectedPart1Topic] = useState("");
   const [selectedCueCardTitle, setSelectedCueCardTitle] = useState("");
+  const [healthInfo, setHealthInfo] = useState(null);
   const [storageReady, setStorageReady] = useState(false);
   const [prepEndsAt, setPrepEndsAt] = useState(null);
   const [clockTick, setClockTick] = useState(Date.now());
@@ -515,9 +516,13 @@ export default function App() {
       audio: stats.filter((item) => item.source === "audio").length,
       text: stats.filter((item) => item.source === "text").length,
       totalDuration: formatDuration(totalSeconds),
-      averageWpm: averageWpm ? `${averageWpm}` : "—",
+      averageWpm: averageWpm ? `${averageWpm}` : "-",
     };
   }, [session?.answer_stats, session?.candidate_answers]);
+
+  const configWarning = healthInfo?.config?.api_key_configured === false
+    ? "Preview mode: the backend is running, but API_KEY is not configured. You can inspect the interface and type answers, but AI replies, transcription, TTS, and scoring need the backend API key."
+    : "";
 
   useEffect(() => {
     let restored = false;
@@ -685,7 +690,8 @@ export default function App() {
     setPrepEndsAt(null);
     setBusy("starting");
     try {
-      await healthCheck();
+      const health = await healthCheck();
+      setHealthInfo(health);
       const data = await startSession({
         ...DEFAULT_SETTINGS,
         practice_type: nextPracticeType,
@@ -1021,6 +1027,8 @@ export default function App() {
         ) : null}
 
         {error ? <div className="error-card">{error}</div> : null}
+
+        {configWarning ? <div className="notice-card">{configWarning}</div> : null}
 
         {report ? (
           <section className="report-card">
