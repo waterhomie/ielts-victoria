@@ -25,6 +25,28 @@ from question_bank import (  # noqa: E402
 from .schemas import AnswerStats, CandidateAnswer, ChatMessage, ExamSession
 
 
+def load_local_env_file(path: Path) -> None:
+    """Load simple KEY=VALUE pairs for local development without extra packages."""
+    if not path.exists():
+        return
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+        name, value = line.split("=", 1)
+        name = name.strip()
+        value = value.strip().strip('"').strip("'")
+        if name and name not in os.environ:
+            os.environ[name] = value
+
+
+load_local_env_file(ROOT_DIR / ".env")
+load_local_env_file(ROOT_DIR / "v2" / "backend" / ".env")
+
+
 PART1_FIRST_QUESTION = "Do you work, or are you a student?"
 FIRST_MESSAGE = (
     "**Part 1 - Introduction and Interview**\n\n"
