@@ -181,6 +181,7 @@ http://localhost:5173
 - Supports random or selected Part 1 topics and Part 2/3 cue cards for focused practice.
 - Displays messages in a real React chat panel.
 - Uses a fixed iOS-style bottom composer.
+- Shows a live practice summary for answered turns, average WPM, timed duration, and voice/text usage.
 - Includes mobile/PWA basics: viewport-fit, theme color, manifest, and lightweight app icon.
 - Supports typed answers.
 - Supports tap-to-record / tap-to-send voice capture.
