@@ -141,23 +141,34 @@ Manual backend command:
 ```powershell
 cd <repo-root>
 python -m pip install -r v2/backend/requirements.txt
-$env:API_KEY="your-key"
-$env:BASE_URL="https://api.gptsapi.net/v1"
-$env:MODEL="gpt-5.4-mini"
-$env:CORS_ORIGINS="http://localhost:5173"
-$env:MAX_AUDIO_UPLOAD_MB="12"
-$env:RATE_LIMIT_PER_MINUTE="120"
-$env:MAX_ANSWER_CHARS="4000"
-$env:MAX_SESSION_MESSAGES="120"
-$env:MAX_TTS_CHARS="1200"
 python -m uvicorn v2.backend.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Backend environment variables are also listed in:
+For local development, put your private API settings in this ignored file:
+
+```text
+v2/backend/.env
+```
+
+Example:
+
+```env
+API_KEY=sk-your-real-provider-key
+BASE_URL=https://api.gptsapi.net/v1
+MODEL=gpt-5.4-mini
+TRANSCRIPTION_MODEL=whisper-1
+CORS_ORIGINS=http://localhost:5174
+```
+
+Do not paste a real API key into GitHub or chat. The local `.env` file is ignored
+by Git; the committed template is:
 
 ```text
 v2/backend/.env.example
 ```
+
+You can also set the same values directly in PowerShell with `$env:API_KEY="..."`;
+system environment variables override local `.env` values.
 
 Manual backend smoke test:
 
