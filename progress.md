@@ -123,6 +123,8 @@ Last updated: 2026-06-29
   and voice/text usage, with a compact 2x2 mobile layout.
 - Improved voice fallback behavior so microphone permission errors or transcription failures
   automatically switch the composer to text mode.
+- Improved text composer ergonomics with a compact textarea: Enter sends, Shift+Enter creates
+  a new line, and the input still stays visually compact.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
