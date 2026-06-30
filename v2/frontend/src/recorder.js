@@ -15,6 +15,11 @@ export class WavRecorder {
 
   async start() {
     if (this.recording) return;
+    if (!window.isSecureContext) {
+      throw new Error(
+        "Microphone recording requires a secure HTTPS page on mobile Safari. Local network HTTP cannot request microphone permission.",
+      );
+    }
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error("This browser does not support microphone recording.");
     }
@@ -168,4 +173,3 @@ function floatTo16BitPcm(view, offset, samples) {
     view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
   }
 }
-
