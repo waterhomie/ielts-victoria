@@ -125,6 +125,8 @@ Last updated: 2026-06-29
   automatically switch the composer to text mode.
 - Improved text composer ergonomics with a compact textarea: Enter sends, Shift+Enter creates
   a new line, and the input still stays visually compact.
+- Added V2 frontend/backend `.env.example` templates for safer deployment handoff without
+  committing real API keys.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
