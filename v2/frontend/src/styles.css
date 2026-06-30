@@ -692,17 +692,25 @@ blockquote {
   accent-color: var(--accent);
 }
 
-.text-composer input {
+.text-composer textarea {
   flex: 1;
   min-width: 0;
   height: 50px;
-  padding: 0 16px;
+  max-height: 92px;
+  padding: 14px 16px;
   border: 0;
   outline: none;
-  border-radius: 999px;
+  resize: none;
+  border-radius: 24px;
   background: var(--surface-strong);
   color: var(--text);
   font-size: 16px;
+  line-height: 1.35;
+  scrollbar-width: none;
+}
+
+.text-composer textarea::-webkit-scrollbar {
+  display: none;
 }
 
 .text-composer button {
