@@ -108,8 +108,9 @@ After deploying both services, run:
   -FrontendUrl "https://your-frontend-domain.com"
 ```
 
-This checks backend health, CORS preflight, question-bank counts, practice
-options, the core session/answer API flow, and frontend HTML availability.
+This checks backend health, safe runtime configuration, API-key presence, CORS
+preflight, question-bank counts, practice options, the core session/answer API
+flow, and frontend HTML availability.
 
 ## Current deployment recommendation
 
