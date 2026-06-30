@@ -121,6 +121,8 @@ Last updated: 2026-06-29
   pending because GitHub requires a token with `workflow` scope to create `.github/workflows/*`.
 - Added a live V2 practice-summary panel for answered turns, average WPM, timed duration,
   and voice/text usage, with a compact 2x2 mobile layout.
+- Improved voice fallback behavior so microphone permission errors or transcription failures
+  automatically switch the composer to text mode.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
