@@ -408,6 +408,7 @@ blockquote {
 
 .status-card,
 .error-card,
+.notice-card,
 .report-card {
   align-self: center;
   width: min(720px, 100%);
@@ -442,6 +443,12 @@ blockquote {
 .error-card {
   background: #fff0f0;
   color: #b4232f;
+  line-height: 1.5;
+}
+
+.notice-card {
+  background: rgba(255, 245, 214, 0.92);
+  color: #8a4b00;
   line-height: 1.5;
 }
 
