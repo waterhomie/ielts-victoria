@@ -417,6 +417,76 @@ blockquote {
   margin: 0 0 10px;
 }
 
+.report-sections {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.report-section {
+  position: relative;
+  overflow: hidden;
+  padding: 14px;
+  border: 1px solid rgba(120, 120, 128, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.report-section::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--blue);
+  opacity: 0.72;
+}
+
+.report-section.score::before {
+  background: #34c759;
+}
+
+.report-section.issues::before {
+  background: #ff9500;
+}
+
+.report-section.examples::before {
+  background: #5856d6;
+}
+
+.report-section.tasks::before {
+  background: #ff3b30;
+}
+
+.report-section.summary::before {
+  background: #0a84ff;
+}
+
+.report-section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.report-section-header h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  letter-spacing: -0.02em;
+}
+
+.report-section-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(10, 132, 255, 0.10);
+  color: #0a66c2;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .report-card .rich-message h3 {
   margin-top: 22px;
   padding-top: 14px;
@@ -657,6 +727,30 @@ button:not(:disabled):active {
     max-width: calc(100vw - 78px);
     padding: 12px 14px;
     border-radius: 19px;
+  }
+
+  .report-section {
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .report-section-header {
+    gap: 6px;
+  }
+
+  .report-section-header h3 {
+    font-size: 0.96rem;
+  }
+
+  .report-section-chip {
+    min-height: 22px;
+    padding: 2px 7px;
+    font-size: 0.72rem;
+  }
+
+  .report-card .rich-message ul,
+  .report-card .rich-message ol {
+    padding-left: 26px;
   }
 
   .composer {
