@@ -184,6 +184,7 @@ http://localhost:5173
 - Shows a live practice summary for answered turns, average WPM, timed duration, and voice/text usage.
 - Includes mobile/PWA basics: viewport-fit, theme color, manifest, and lightweight app icon.
 - Supports typed answers.
+- Supports chat-style text entry: Enter sends and Shift+Enter creates a new line.
 - Supports tap-to-record / tap-to-send voice capture.
 - Automatically falls back to text mode when microphone permission or transcription fails.
 - Encodes browser audio as compact 16kHz mono WAV before transcription.
