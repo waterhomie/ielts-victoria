@@ -206,32 +206,130 @@ function friendlyError(err, fallback) {
   return message || fallback;
 }
 
+function renderInline(text, keyPrefix) {
+  return String(text || "")
+    .split(/(`[^`]+`|\*\*[^*]+\*\*)/g)
+    .map((part, index) => {
+      const key = `${keyPrefix}-${index}`;
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return <strong key={key}>{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith("`") && part.endsWith("`")) {
+        return <code key={key}>{part.slice(1, -1)}</code>;
+      }
+      return <span key={key}>{part}</span>;
+    });
+}
+
 function RichMessage({ content }) {
-  const blocks = String(content || "").split(/\n{2,}/);
+  const lines = String(content || "").replace(/\r\n/g, "\n").split("\n");
+  const blocks = [];
+  let index = 0;
+
+  const isHeading = (line) => /^#{1,4}\s+/.test(line.trim());
+  const isRule = (line) => /^-{3,}$/.test(line.trim());
+  const isQuote = (line) => /^>\s?/.test(line.trim());
+  const isBullet = (line) => /^[-*]\s+/.test(line.trim());
+  const isOrdered = (line) => /^\d+[.)]\s+/.test(line.trim());
+  const isBlockStart = (line) =>
+    !line.trim() || isHeading(line) || isRule(line) || isQuote(line) || isBullet(line) || isOrdered(line);
+
+  while (index < lines.length) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      index += 1;
+      continue;
+    }
+
+    if (isRule(line)) {
+      blocks.push({ type: "rule" });
+      index += 1;
+      continue;
+    }
+
+    if (isHeading(line)) {
+      const match = trimmed.match(/^(#{1,4})\s+(.*)$/);
+      blocks.push({ type: "heading", level: match[1].length, text: match[2] });
+      index += 1;
+      continue;
+    }
+
+    if (isQuote(line)) {
+      const quoteLines = [];
+      while (index < lines.length && isQuote(lines[index])) {
+        quoteLines.push(lines[index].trim().replace(/^>\s?/, ""));
+        index += 1;
+      }
+      blocks.push({ type: "quote", lines: quoteLines });
+      continue;
+    }
+
+    if (isBullet(line) || isOrdered(line)) {
+      const ordered = isOrdered(line);
+      const items = [];
+      while (index < lines.length && (ordered ? isOrdered(lines[index]) : isBullet(lines[index]))) {
+        items.push(lines[index].trim().replace(ordered ? /^\d+[.)]\s+/ : /^[-*]\s+/, ""));
+        index += 1;
+      }
+      blocks.push({ type: ordered ? "ordered-list" : "bullet-list", items });
+      continue;
+    }
+
+    const paragraphLines = [trimmed];
+    index += 1;
+    while (index < lines.length && !isBlockStart(lines[index])) {
+      paragraphLines.push(lines[index].trim());
+      index += 1;
+    }
+    blocks.push({ type: "paragraph", lines: paragraphLines });
+  }
+
   return (
-    <>
-      {blocks.map((block, index) => {
-        const trimmed = block.trim();
-        if (!trimmed) return null;
-        if (trimmed.startsWith(">")) {
+    <div className="rich-message">
+      {blocks.map((block, blockIndex) => {
+        if (block.type === "rule") {
+          return <hr key={blockIndex} />;
+        }
+        if (block.type === "heading") {
+          const HeadingTag = block.level <= 2 ? "h3" : "h4";
+          return <HeadingTag key={blockIndex}>{renderInline(block.text, `h-${blockIndex}`)}</HeadingTag>;
+        }
+        if (block.type === "quote") {
           return (
-            <blockquote key={index}>
-              {trimmed.replace(/^>\s?/, "").replace(/\*\*/g, "")}
+            <blockquote key={blockIndex}>
+              {block.lines.map((quoteLine, lineIndex) => (
+                <span key={lineIndex}>
+                  {renderInline(quoteLine, `q-${blockIndex}-${lineIndex}`)}
+                  {lineIndex < block.lines.length - 1 ? <br /> : null}
+                </span>
+              ))}
             </blockquote>
           );
         }
+        if (block.type === "bullet-list" || block.type === "ordered-list") {
+          const ListTag = block.type === "ordered-list" ? "ol" : "ul";
+          return (
+            <ListTag key={blockIndex}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}>{renderInline(item, `li-${blockIndex}-${itemIndex}`)}</li>
+              ))}
+            </ListTag>
+          );
+        }
         return (
-          <p key={index}>
-            {trimmed.split(/(\*\*[^*]+\*\*)/g).map((part, partIndex) => {
-              if (part.startsWith("**") && part.endsWith("**")) {
-                return <strong key={partIndex}>{part.slice(2, -2)}</strong>;
-              }
-              return <span key={partIndex}>{part}</span>;
-            })}
+          <p key={blockIndex}>
+            {block.lines.map((paragraphLine, lineIndex) => (
+              <span key={lineIndex}>
+                {renderInline(paragraphLine, `p-${blockIndex}-${lineIndex}`)}
+                {lineIndex < block.lines.length - 1 ? <br /> : null}
+              </span>
+            ))}
           </p>
         );
       })}
-    </>
+    </div>
   );
 }
 
