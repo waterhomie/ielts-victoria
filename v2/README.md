@@ -185,6 +185,7 @@ http://localhost:5173
 - Includes mobile/PWA basics: viewport-fit, theme color, manifest, and lightweight app icon.
 - Supports typed answers.
 - Supports tap-to-record / tap-to-send voice capture.
+- Automatically falls back to text mode when microphone permission or transcription fails.
 - Encodes browser audio as compact 16kHz mono WAV before transcription.
 - Sends answers to the Python state machine.
 - Supports dynamic Part 3 follow-up generation through the backend.
