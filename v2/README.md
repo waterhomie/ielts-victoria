@@ -212,6 +212,7 @@ http://localhost:5173
 - Adds quick navigation chips for long generated reports without changing downloaded text files.
 - Keeps voice playback single-channel so restarting or answering stops any previous prompt audio.
 - Checks backend health on startup and turns timeout/backend failures into clear UI errors.
+- Exposes safe backend health diagnostics for model/configuration/limits without leaking API keys.
 - Includes a simple backend rate limit for public-deployment safety.
 - Limits oversized answers, sessions, and TTS requests before they reach provider backends.
 - Saves the current practice session locally on a best-effort basis so a refresh can restore the conversation.
