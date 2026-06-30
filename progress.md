@@ -114,6 +114,8 @@ Last updated: 2026-06-29
   headings/lists/quotes/inline examples, and smoke coverage for the fallback report structure.
 - Added focused report cards that split score, skill breakdown, issues, corrected examples,
   next-session tasks, and summary into mobile-friendly visual sections.
+- Added optional quick-navigation chips for multi-section reports, using in-panel smooth
+  scrolling and leaving downloaded text exports unchanged.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
@@ -232,13 +234,13 @@ It is not yet ready for:
 
 Recommended next task:
 
-> Add report section deep links / quick navigation.
+> Add app readiness/deployment status note.
 
 Acceptance criteria:
 
-1. Long reports provide quick navigation to score, problems, examples, tasks, and summary.
-2. Navigation is optional and hidden when a report has only one section.
-3. It stays compact on mobile and does not affect text downloads.
+1. README explains clearly that V2 is the custom React/FastAPI successor to the Streamlit app.
+2. README lists what is production-ready, what still needs hosting configuration, and what is intentionally not included.
+3. Progress notes include a concise deployment handoff checklist.
 4. `python -m py_compile` passes.
 5. `python validate_question_bank.py` passes.
 6. Frontend production build passes.
