@@ -30,6 +30,38 @@ Related docs:
 - [API contract](./API_CONTRACT.md)
 - [Deployment plan](./DEPLOYMENT.md)
 
+## Readiness snapshot
+
+Current recommendation:
+
+- Keep the original Streamlit app as the stable public fallback.
+- Treat V2 as the custom React/FastAPI successor and private-beta build.
+- Do not replace the public Streamlit link until V2 frontend and backend are deployed
+  as real services and mobile microphone behavior is live-tested.
+
+Ready now:
+
+- Local React/FastAPI development flow.
+- Stateless backend API for IELTS session state.
+- Question-bank validation, backend smoke tests, and frontend production build.
+- Custom chat UI, tap-to-record voice input, transcription, TTS playback, scoring reports,
+  practice-record export, and focused practice modes.
+
+Still required before public replacement:
+
+- Hosted backend with protected environment variables.
+- Hosted frontend with `VITE_API_BASE` pointing to the backend.
+- Production `CORS_ORIGINS` restricted to the frontend domain.
+- iPhone Safari and WeChat in-app-browser microphone testing.
+- Budget-aware rate-limit tuning for the real API provider.
+
+Intentionally not included yet:
+
+- User accounts or database-backed history.
+- Payment, subscription, or WeChat Mini Program release.
+- Formal acoustic pronunciation scoring.
+- Human tutor review or marketplace features.
+
 ## Directory structure
 
 ```text
