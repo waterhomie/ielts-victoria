@@ -16,6 +16,8 @@ Frontend:
 VITE_API_BASE=https://your-backend-domain.com
 ```
 
+See `v2/frontend/.env.example` for the frontend variable template.
+
 Backend:
 
 - Render / Railway / Fly.io / Google Cloud Run
@@ -46,6 +48,8 @@ MAX_ANSWER_CHARS=4000
 MAX_SESSION_MESSAGES=120
 MAX_TTS_CHARS=1200
 ```
+
+See `v2/backend/.env.example` for the backend variable template.
 
 ## Option B: one server serving both frontend and backend
 
