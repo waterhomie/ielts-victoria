@@ -11,10 +11,12 @@ import {
 import { WavRecorder } from "./recorder.js";
 
 const DEFAULT_SETTINGS = {
-  practice_mode: true,
-  answer_expansion_mode: true,
   voice_playback_enabled: true,
 };
+const TRAINING_MODES = [
+  { value: "practice", label: "Practice" },
+  { value: "mock", label: "Mock" },
+];
 const PRACTICE_TYPES = [
   { value: "full", label: "Full" },
   { value: "part1", label: "Part 1" },
@@ -456,6 +458,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [report, setReport] = useState("");
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [trainingMode, setTrainingMode] = useState("practice");
   const [practiceType, setPracticeType] = useState("full");
   const [practiceOptions, setPracticeOptions] = useState({ part1_topics: [], cue_cards: [] });
   const [selectedPart1Topic, setSelectedPart1Topic] = useState("");
@@ -474,6 +477,7 @@ export default function App() {
 
   const messages = session?.messages || [];
   const currentPhase = phaseLabel(session?.phase);
+  const isPracticeMode = trainingMode === "practice";
   const canAnswer = Boolean(session?.test_active) && !busy && !recording;
   const canStartRecording = Boolean(session?.test_active) && !busy;
   const canScoreNow = Boolean(session?.candidate_answers?.some((item) => item.phase !== "identity")) && !busy;
@@ -524,6 +528,9 @@ export default function App() {
   const configWarning = healthInfo?.config?.api_key_configured === false
     ? "Preview mode: the backend is running, but API_KEY is not configured. You can inspect the interface and type answers, but AI replies, transcription, TTS, and scoring need the backend API key."
     : "";
+  const stageDescription = isPracticeMode
+    ? "Practice mode: instant spoken feedback and natural answer upgrades."
+    : "Mock mode: fewer interruptions, final score after the test.";
 
   useEffect(() => {
     let restored = false;
@@ -534,6 +541,7 @@ export default function App() {
         setSession(saved.session);
         setReport(saved.report || "");
         setAudioEnabled(saved.audioEnabled ?? true);
+        setTrainingMode(saved.trainingMode || (saved.session.practice_mode ? "practice" : "mock"));
         setPracticeType(saved.practiceType || saved.session.practice_type || "full");
         setSelectedPart1Topic(saved.selectedPart1Topic || "");
         setSelectedCueCardTitle(saved.selectedCueCardTitle || "");
@@ -611,6 +619,7 @@ export default function App() {
         session,
         report,
         audioEnabled,
+        trainingMode,
         practiceType,
         selectedPart1Topic,
         selectedCueCardTitle,
@@ -624,6 +633,7 @@ export default function App() {
     }
   }, [
     audioEnabled,
+    trainingMode,
     practiceType,
     prepEndsAt,
     report,
@@ -691,10 +701,13 @@ export default function App() {
     nextPracticeType = practiceType,
     nextPart1Topic = selectedPart1Topic,
     nextCueCardTitle = selectedCueCardTitle,
+    nextTrainingMode = trainingMode,
   ) {
     recorderRef.current?.cleanup?.();
     recorderRef.current = null;
     stopCurrentAudio();
+    const nextIsPracticeMode = nextTrainingMode === "practice";
+    setTrainingMode(nextTrainingMode);
     setPracticeType(nextPracticeType);
     setSelectedPart1Topic(nextPart1Topic);
     setSelectedCueCardTitle(nextCueCardTitle);
@@ -711,6 +724,8 @@ export default function App() {
       setHealthInfo(health);
       const data = await startSession({
         ...DEFAULT_SETTINGS,
+        practice_mode: nextIsPracticeMode,
+        answer_expansion_mode: nextIsPracticeMode,
         practice_type: nextPracticeType,
         part1_topic: nextPart1Topic || null,
         cue_card_title: nextCueCardTitle || null,
@@ -775,19 +790,25 @@ export default function App() {
   function changePracticeType(event) {
     const nextPracticeType = event.target.value;
     if (nextPracticeType === practiceType && session) return;
-    createFreshSession(nextPracticeType);
+    createFreshSession(nextPracticeType, selectedPart1Topic, selectedCueCardTitle, trainingMode);
+  }
+
+  function changeTrainingMode(event) {
+    const nextTrainingMode = event.target.value;
+    if (nextTrainingMode === trainingMode && session) return;
+    createFreshSession(practiceType, selectedPart1Topic, selectedCueCardTitle, nextTrainingMode);
   }
 
   function changePart1Topic(event) {
     const nextTopic = event.target.value;
     setSelectedPart1Topic(nextTopic);
-    createFreshSession(practiceType, nextTopic, selectedCueCardTitle);
+    createFreshSession(practiceType, nextTopic, selectedCueCardTitle, trainingMode);
   }
 
   function changeCueCardTitle(event) {
     const nextTitle = event.target.value;
     setSelectedCueCardTitle(nextTitle);
-    createFreshSession(practiceType, selectedPart1Topic, nextTitle);
+    createFreshSession(practiceType, selectedPart1Topic, nextTitle, trainingMode);
   }
 
   function resetComposerAfterAnswer() {
@@ -934,7 +955,17 @@ export default function App() {
         </div>
         <div className="top-actions">
           <label className="practice-select">
-            <span>Mode</span>
+            <span>Training</span>
+            <select value={trainingMode} onChange={changeTrainingMode} disabled={Boolean(busy) || recording}>
+              {TRAINING_MODES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="practice-select">
+            <span>Flow</span>
             <select value={practiceType} onChange={changePracticeType} disabled={Boolean(busy) || recording}>
               {PRACTICE_TYPES.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -956,16 +987,30 @@ export default function App() {
               Export
             </button>
           ) : null}
-          <button className="ghost-button" type="button" onClick={createFreshSession}>
+          <button className="ghost-button" type="button" onClick={() => createFreshSession()}>
             Restart
           </button>
         </div>
       </header>
 
       <aside className="stage-card">
-        <div>
-          <span className="stage-pill">{currentPhase}</span>
-          <p>{session?.phase === "part3" ? "Dynamic follow-up loop" : "Structured IELTS flow"}</p>
+        <div className="stage-main">
+          <div className="stage-copy">
+            <div className="stage-line">
+              <span className="stage-pill">{currentPhase}</span>
+              <span className={`training-pill ${isPracticeMode ? "practice" : "mock"}`}>
+                {isPracticeMode ? "Practice" : "Mock"}
+              </span>
+            </div>
+            <p>{session?.phase === "part3" ? "Dynamic follow-up loop" : stageDescription}</p>
+          </div>
+          {session ? (
+            <div className="session-mini" aria-label="Current practice summary">
+              <span><strong>{sessionStats.answered}</strong> answers</span>
+              <span><strong>{sessionStats.averageWpm}</strong> WPM</span>
+              <span><strong>{sessionStats.totalDuration}</strong></span>
+            </div>
+          ) : null}
         </div>
         {prepRemaining > 0 ? (
           <div className="prep-timer" aria-live="polite">
@@ -1005,26 +1050,6 @@ export default function App() {
               ))}
             </select>
           </label>
-        ) : null}
-        {session ? (
-          <div className="session-insights" aria-label="Current practice summary">
-            <div>
-              <strong>{sessionStats.answered}</strong>
-              <span>answers</span>
-            </div>
-            <div>
-              <strong>{sessionStats.averageWpm}</strong>
-              <span>avg WPM</span>
-            </div>
-            <div>
-              <strong>{sessionStats.totalDuration}</strong>
-              <span>timed</span>
-            </div>
-            <div>
-              <strong>{sessionStats.audio}/{sessionStats.text}</strong>
-              <span>voice/text</span>
-            </div>
-          </div>
         ) : null}
         <div className="progress-track">
           <div style={{ width: `${stageProgress}%` }} />
