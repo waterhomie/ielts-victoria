@@ -203,6 +203,9 @@ def main() -> None:
 
     fallback_text = build_fallback_report(ExamSession.model_validate(session))
     assert "rule-based fallback" in fallback_text, fallback_text
+    assert "## Overall band estimate" in fallback_text, fallback_text
+    assert "## Skill breakdown" in fallback_text, fallback_text
+    assert "## Corrected examples" in fallback_text, fallback_text
     assert "Next-session practice tasks" in fallback_text, fallback_text
     assert "Session learning summary" in fallback_text, fallback_text
 
