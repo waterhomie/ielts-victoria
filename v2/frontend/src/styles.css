@@ -136,30 +136,64 @@ h1 {
 }
 
 .stage-card {
-  margin: 10px 0 18px;
-  padding: 16px;
+  margin: 8px 0 12px;
+  padding: 12px 14px;
   border: 1px solid var(--border);
-  border-radius: 26px;
+  border-radius: 24px;
   background: var(--surface);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.045);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
 }
 
+.stage-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.stage-copy {
+  min-width: 0;
+}
+
+.stage-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .stage-card p {
-  margin: 9px 0 0;
+  margin: 7px 0 0;
   color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.stage-pill,
+.training-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 0.92rem;
+  font-weight: 750;
 }
 
 .stage-pill {
-  display: inline-flex;
-  align-items: center;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 999px;
   background: rgba(10, 132, 255, 0.12);
   color: #075db5;
-  font-weight: 750;
+}
+
+.training-pill.practice {
+  background: rgba(52, 199, 89, 0.13);
+  color: #176b2c;
+}
+
+.training-pill.mock {
+  background: rgba(255, 149, 0, 0.14);
+  color: #8a4b00;
 }
 
 .prep-timer {
@@ -208,45 +242,37 @@ h1 {
   font-weight: 700;
 }
 
-.session-insights {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 12px;
+.session-mini {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 48%;
 }
 
-.session-insights div {
-  min-width: 0;
-  padding: 10px 8px;
-  border-radius: 16px;
+.session-mini span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 9px;
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.58);
-  box-shadow: inset 0 0 0 1px rgba(120, 120, 128, 0.11);
-}
-
-.session-insights strong,
-.session-insights span {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  box-shadow: inset 0 0 0 1px rgba(120, 120, 128, 0.10);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
   white-space: nowrap;
 }
 
-.session-insights strong {
+.session-mini strong {
+  margin-right: 3px;
   color: var(--text);
-  font-size: 0.98rem;
   font-variant-numeric: tabular-nums;
 }
 
-.session-insights span {
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 700;
-}
-
 .progress-track {
-  height: 7px;
-  margin-top: 14px;
+  height: 6px;
+  margin-top: 10px;
   overflow: hidden;
   border-radius: 999px;
   background: rgba(120, 120, 128, 0.16);
@@ -749,7 +775,8 @@ button:not(:disabled):active {
   }
 
   .top-actions {
-    max-width: 116px;
+    max-width: 172px;
+    gap: 6px;
   }
 
   .ghost-button {
@@ -785,8 +812,20 @@ button:not(:disabled):active {
     font-size: 13px;
   }
 
-  .session-insights {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .stage-main {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .session-mini {
+    justify-content: flex-start;
+    max-width: 100%;
+  }
+
+  .session-mini span {
+    min-height: 26px;
+    padding: 0 8px;
+    font-size: 0.74rem;
   }
 
   h1 {
