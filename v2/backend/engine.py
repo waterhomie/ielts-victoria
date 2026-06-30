@@ -880,16 +880,27 @@ def build_fallback_report(session: ExamSession) -> str:
         "Practise one complete Part 2 answer for 90-120 seconds before requesting a score.",
         "For Part 3, answer with a clear opinion, one reason, and one real-world example.",
     ]
+    skill_breakdown = [
+        f"**Fluency and Coherence:** average answer length is {average_words} words; fuller answers make scoring more reliable.",
+        "**Lexical Resource:** the fallback report cannot judge fine word choice, so review repeated broad words in the transcript.",
+        "**Grammar:** the fallback report checks only a small set of repeated spoken grammar patterns.",
+    ]
 
     return "\n\n".join(
         [
-            "## Final report (rule-based fallback)",
-            "The AI scoring model was temporarily unavailable, so this report uses the saved raw answers and timing data only.",
+            "## Overall band estimate",
+            "The AI scoring model was temporarily unavailable, so this rule-based fallback uses the saved raw answers and timing data only.",
             f"**Estimated band range:** {band_range}",
             f"**Evidence used:** {len(answers)} candidate answers, {total_words} spoken words, average answer length {average_words} words.",
             f"**Speaking pace:** {average_wpm} WPM." if average_wpm else "**Speaking pace:** not enough audio timing evidence.",
-            "**Main issues noticed:**\n" + "\n".join(f"- {problem}" for problem in problems[:3]),
-            "**Next-session practice tasks:**\n" + "\n".join(f"{index}. {task}" for index, task in enumerate(tasks, start=1)),
+            "## Skill breakdown",
+            "\n".join(f"- {item}" for item in skill_breakdown),
+            "## Three recurring spoken-language problems",
+            "\n".join(f"{index}. {problem}" for index, problem in enumerate(problems[:3], start=1)),
+            "## Corrected examples",
+            "> Original: not available in rule-based fallback.\n> Better: generate a model report for sentence-level rewrites.",
+            "## Next-session practice tasks",
+            "\n".join(f"{index}. {task}" for index, task in enumerate(tasks, start=1)),
             build_session_learning_summary(session),
         ]
     )
@@ -899,15 +910,41 @@ def build_report(session: ExamSession) -> str:
     prompt = f"""
 Create a clear IELTS Speaking practice report based only on the candidate answers below.
 
-Include:
-1. Estimated overall band score.
-2. Separate comments for Fluency and Coherence, Lexical Resource, and Grammar.
-3. Three recurring spoken-language problems.
-4. Three corrected examples based on the candidate's meaning.
-5. Exactly three next-session practice tasks.
+Use this Markdown structure exactly:
+
+## Overall band estimate
+Give one cautious estimated overall band score or band range, with one sentence explaining the evidence.
+
+## Skill breakdown
+- **Fluency and Coherence:** comment on answer length, flow, and development.
+- **Lexical Resource:** comment on word choice and naturalness.
+- **Grammar:** comment on spoken grammar patterns.
+
+## Three recurring spoken-language problems
+1. Name the problem and cite the relevant answer.
+2. Name the problem and cite the relevant answer.
+3. Name the problem and cite the relevant answer.
+
+## Corrected examples
+For each example, quote the candidate's original meaning and then provide a natural spoken version:
+
+> Original: ...
+> Better: ...
+
+> Original: ...
+> Better: ...
+
+> Original: ...
+> Better: ...
+
+## Next-session practice tasks
+1. Give one concrete task.
+2. Give one concrete task.
+3. Give one concrete task.
 
 Do not include a generic seven-day plan.
 Do not assess pronunciation unless audio timing alone supports a cautious observation.
+Do not invent answers or score pronunciation from text-only evidence.
 
 Raw answer log:
 {export_candidate_answer_log(session)}
