@@ -182,6 +182,9 @@ function buildPracticeRecordText(session, report) {
 function friendlyError(err, fallback) {
   const message = err?.message || "";
   if (/secure HTTPS|secure context|local network HTTP|isSecureContext/i.test(message)) {
+    return "iPhone Safari needs HTTPS before it can ask for microphone permission. This local Wi-Fi address can be used for text testing, but voice recording needs an HTTPS preview or public deployment.";
+  }
+  if (/secure HTTPS|secure context|local network HTTP|isSecureContext/i.test(message)) {
     return "iPhone Safari needs HTTPS before it can ask for microphone permission. This local Wi‑Fi address can be used for text testing, but voice recording needs an HTTPS preview or public deployment.";
   }
   if (/microphone|permission|notallowed|denied/i.test(message)) {
@@ -209,6 +212,13 @@ function friendlyError(err, fallback) {
     return "Network connection is unstable. Please try again in a moment.";
   }
   return message || fallback;
+}
+
+function isLikelyIOSDevice() {
+  if (typeof navigator === "undefined") return false;
+  const userAgent = navigator.userAgent || "";
+  const platform = navigator.platform || "";
+  return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }
 
 function renderInline(text, keyPrefix) {
@@ -470,11 +480,16 @@ export default function App() {
   const [storageReady, setStorageReady] = useState(false);
   const [prepEndsAt, setPrepEndsAt] = useState(null);
   const [clockTick, setClockTick] = useState(Date.now());
+  const [pendingSpeechUrl, setPendingSpeechUrl] = useState("");
+  const [pendingSpeechText, setPendingSpeechText] = useState("");
+  const [canRetryRecording, setCanRetryRecording] = useState(false);
   const chatPanelRef = useRef(null);
   const bottomRef = useRef(null);
   const recorderRef = useRef(null);
   const audioRef = useRef(null);
   const audioUrlRef = useRef("");
+  const pendingSpeechUrlRef = useRef("");
+  const lastRecordingRef = useRef(null);
   const startedAtRef = useRef(0);
   const startupRecoveryAttemptedRef = useRef(false);
 
@@ -484,7 +499,7 @@ export default function App() {
   const canAnswer = Boolean(session?.test_active) && !busy && !recording;
   const canStartRecording = Boolean(session?.test_active) && !busy;
   const canScoreNow = Boolean(session?.candidate_answers?.some((item) => item.phase !== "identity")) && !busy;
-  const canExportRecord = Boolean(session?.messages?.length || session?.candidate_answers?.length) && !busy;
+  const canExportRecord = Boolean(session?.candidate_answers?.length) && !busy;
   const recordButtonDisabled = recording ? false : !canStartRecording;
   const recordButtonText = !session
     ? "Starting..."
@@ -534,6 +549,10 @@ export default function App() {
   const stageDescription = isPracticeMode
     ? "Practice mode: instant spoken feedback and natural answer upgrades."
     : "Mock mode: fewer interruptions, final score after the test.";
+  const showPart1TopicSelect = practiceType === "part1" && practiceOptions.part1_topics.length;
+  const showCueCardSelect =
+    (practiceType === "part2" || practiceType === "part3") && practiceOptions.cue_cards.length;
+  const hasStageControls = Boolean(prepRemaining > 0 || showPart1TopicSelect || showCueCardSelect);
 
   useEffect(() => {
     let restored = false;
@@ -700,6 +719,35 @@ export default function App() {
     audioUrlRef.current = "";
   }
 
+  function clearPendingSpeech() {
+    if (pendingSpeechUrlRef.current) {
+      URL.revokeObjectURL(pendingSpeechUrlRef.current);
+    }
+    pendingSpeechUrlRef.current = "";
+    setPendingSpeechUrl("");
+    setPendingSpeechText("");
+  }
+
+  async function playAudioUrl(url) {
+    const audio = new Audio(url);
+    audio.playsInline = true;
+    audio.preload = "auto";
+    audioRef.current = audio;
+    audioUrlRef.current = url;
+    audio.addEventListener(
+      "ended",
+      () => {
+        if (audioRef.current === audio) {
+          URL.revokeObjectURL(url);
+          audioRef.current = null;
+          audioUrlRef.current = "";
+        }
+      },
+      { once: true },
+    );
+    await audio.play();
+  }
+
   async function createFreshSession(
     nextPracticeType = practiceType,
     nextPart1Topic = selectedPart1Topic,
@@ -709,6 +757,9 @@ export default function App() {
     recorderRef.current?.cleanup?.();
     recorderRef.current = null;
     stopCurrentAudio();
+    clearPendingSpeech();
+    lastRecordingRef.current = null;
+    setCanRetryRecording(false);
     const nextIsPracticeMode = nextTrainingMode === "practice";
     setTrainingMode(nextTrainingMode);
     setPracticeType(nextPracticeType);
@@ -750,34 +801,53 @@ export default function App() {
   async function playSpeech(text) {
     if (!audioEnabled || !text) return;
     stopCurrentAudio();
+    clearPendingSpeech();
     let url = "";
     try {
       const blob = await synthesizeSpeech(text);
       url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audioUrlRef.current = url;
-      audio.addEventListener(
-        "ended",
-        () => {
-          if (audioRef.current === audio) {
-            URL.revokeObjectURL(url);
-            audioRef.current = null;
-            audioUrlRef.current = "";
-          }
-        },
-        { once: true },
-      );
-      await audio.play();
-    } catch (_) {
-      if (url) URL.revokeObjectURL(url);
-      if (audioUrlRef.current === url) {
-        audioUrlRef.current = "";
+      if (isLikelyIOSDevice()) {
+        pendingSpeechUrlRef.current = url;
+        setPendingSpeechUrl(url);
+        setPendingSpeechText(text);
+        return;
       }
-      if (audioRef.current) {
+      await playAudioUrl(url);
+    } catch (err) {
+      if (!url) {
+        setError(friendlyError(err, "Voice playback is temporarily unavailable. You can continue with the visible text."));
+        return;
+      }
+      if (url) {
         audioRef.current = null;
+        audioUrlRef.current = "";
+        pendingSpeechUrlRef.current = url;
+        setPendingSpeechUrl(url);
+        setPendingSpeechText(text);
       }
-      // Browsers may block autoplay; text still remains the source of truth.
+      if (/play|autoplay|notallowed/i.test(err?.message || "")) {
+        return;
+        setError("iPhone Safari blocked autoplay. Tap “Play Victoria” to hear this reply.");
+      }
+    }
+  }
+
+  async function playPendingSpeech() {
+    if (!pendingSpeechUrl) return;
+    setError("");
+    stopCurrentAudio();
+    const url = pendingSpeechUrl;
+    const text = pendingSpeechText;
+    pendingSpeechUrlRef.current = "";
+    setPendingSpeechUrl("");
+    setPendingSpeechText("");
+    try {
+      await playAudioUrl(url);
+    } catch (_) {
+      pendingSpeechUrlRef.current = url;
+      setPendingSpeechUrl(url);
+      setPendingSpeechText(text);
+      setError("Audio still could not play. Please check Safari's sound mode and tap Play Victoria again.");
     }
   }
 
@@ -785,6 +855,7 @@ export default function App() {
     setAudioEnabled((value) => {
       if (value) {
         stopCurrentAudio();
+        clearPendingSpeech();
       }
       return !value;
     });
@@ -825,9 +896,12 @@ export default function App() {
     if (!cleaned || !session) return;
     setError("");
     setBusy("thinking");
+    setCanRetryRecording(false);
+    lastRecordingRef.current = null;
     setReport("");
     setPrepEndsAt(null);
     stopCurrentAudio();
+    clearPendingSpeech();
     resetComposerAfterAnswer();
     try {
       const data = await sendAnswer({
@@ -863,6 +937,18 @@ export default function App() {
     }
   }
 
+  async function handleTranscribedAudio(text, duration) {
+    if (reviewBeforeSend) {
+      setDraft(text);
+      setMode("text");
+      setBusy("");
+    } else {
+      await submitAnswer(text, "audio", duration);
+    }
+    lastRecordingRef.current = null;
+    setCanRetryRecording(false);
+  }
+
   async function toggleRecording() {
     if (busy) return;
     setError("");
@@ -875,6 +961,8 @@ export default function App() {
         startedAtRef.current = Date.now();
         setElapsed(0);
         setRecording(true);
+        setCanRetryRecording(false);
+        lastRecordingRef.current = null;
       } catch (err) {
         recorderRef.current?.cleanup?.();
         recorderRef.current = null;
@@ -894,23 +982,38 @@ export default function App() {
       if (!result.blob || result.blob.size < 1024 || !Number.isFinite(result.duration)) {
         throw new Error("Recording is too short.");
       }
+      lastRecordingRef.current = result;
       const transcription = await transcribeAudio(result.blob);
       const text = transcription.text || "";
       if (!text.trim()) {
         throw new Error("No clear speech was detected.");
       }
-      if (reviewBeforeSend) {
-        setDraft(text);
-        setMode("text");
-        setBusy("");
-      } else {
-        await submitAnswer(text, "audio", result.duration);
-      }
+      await handleTranscribedAudio(text, result.duration);
     } catch (err) {
       recorderRef.current?.cleanup?.();
       recorderRef.current = null;
       setElapsed(0);
       setMode("text");
+      setCanRetryRecording(Boolean(lastRecordingRef.current?.blob));
+      setError(friendlyError(err, "Recording could not be sent."));
+      setBusy("");
+    }
+  }
+
+  async function retryLastRecording() {
+    const result = lastRecordingRef.current;
+    if (!result?.blob || busy) return;
+    setError("");
+    setBusy("transcribing");
+    try {
+      const transcription = await transcribeAudio(result.blob);
+      const text = transcription.text || "";
+      if (!text.trim()) {
+        throw new Error("No clear speech was detected.");
+      }
+      await handleTranscribedAudio(text, result.duration);
+    } catch (err) {
+      setCanRetryRecording(true);
       setError(friendlyError(err, "Recording could not be sent."));
       setBusy("");
     }
@@ -952,9 +1055,31 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div>
+        <div className="brand-block">
           <div className="eyebrow">IELTS Speaking Coach</div>
           <h1>Examiner Victoria</h1>
+          <div className="mobile-stage-summary" aria-label="Current IELTS practice status">
+            <div className="mobile-stage-row">
+              <div className="stage-line">
+                <span className="stage-pill">{currentPhase}</span>
+                <span className={`training-pill ${isPracticeMode ? "practice" : "mock"}`}>
+                  {isPracticeMode ? "Practice" : "Mock"}
+                </span>
+              </div>
+              {session ? (
+                <div className="mobile-stats" aria-label="Current practice summary">
+                  <strong>{sessionStats.answered}</strong> ans
+                  <span>·</span>
+                  <strong>{sessionStats.averageWpm}</strong> WPM
+                  <span>·</span>
+                  <strong>{sessionStats.totalDuration}</strong>
+                </div>
+              ) : null}
+            </div>
+            <div className="progress-track">
+              <div style={{ width: `${stageProgress}%` }} />
+            </div>
+          </div>
         </div>
         <div className="top-actions">
           <label className="practice-select">
@@ -994,9 +1119,31 @@ export default function App() {
             Restart
           </button>
         </div>
+        <div className="mobile-stage-summary mobile-stage-summary-wide" aria-label="Current IELTS practice status">
+          <div className="mobile-stage-row">
+            <div className="stage-line">
+              <span className="stage-pill">{currentPhase}</span>
+              <span className={`training-pill ${isPracticeMode ? "practice" : "mock"}`}>
+                {isPracticeMode ? "Practice" : "Mock"}
+              </span>
+            </div>
+            {session ? (
+              <div className="mobile-stats" aria-label="Current practice summary">
+                <strong>{sessionStats.answered}</strong> ans
+                <span>·</span>
+                <strong>{sessionStats.averageWpm}</strong> WPM
+                <span>·</span>
+                <strong>{sessionStats.totalDuration}</strong>
+              </div>
+            ) : null}
+          </div>
+          <div className="progress-track">
+            <div style={{ width: `${stageProgress}%` }} />
+          </div>
+        </div>
       </header>
 
-      <aside className="stage-card">
+      <aside className={`stage-card ${hasStageControls ? "has-stage-controls" : ""}`}>
         <div className="stage-main">
           <div className="stage-copy">
             <div className="stage-line">
@@ -1020,7 +1167,7 @@ export default function App() {
             Part 2 prep time <strong>{formatDuration(prepRemaining)}</strong>
           </div>
         ) : null}
-        {practiceType === "part1" && practiceOptions.part1_topics.length ? (
+        {showPart1TopicSelect ? (
           <label className="topic-select">
             <span>Topic</span>
             <select
@@ -1037,7 +1184,7 @@ export default function App() {
             </select>
           </label>
         ) : null}
-        {(practiceType === "part2" || practiceType === "part3") && practiceOptions.cue_cards.length ? (
+        {showCueCardSelect ? (
           <label className="topic-select">
             <span>Cue card</span>
             <select
@@ -1071,7 +1218,28 @@ export default function App() {
           </div>
         ) : null}
 
-        {error ? <div className="error-card">{error}</div> : null}
+        {error ? (
+          <div className="error-card">
+            <span>{error}</span>
+            {canRetryRecording ? (
+              <button type="button" onClick={retryLastRecording} disabled={Boolean(busy)}>
+                Retry transcription
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {pendingSpeechUrl ? (
+          <div className="audio-card">
+            <div>
+              <strong>Victoria's voice is ready</strong>
+              <span>iPhone Safari needs a tap before playing audio.</span>
+            </div>
+            <button type="button" onClick={playPendingSpeech}>
+              Play Victoria
+            </button>
+          </div>
+        ) : null}
 
         {configWarning ? <div className="notice-card">{configWarning}</div> : null}
 
