@@ -116,6 +116,9 @@ Last updated: 2026-06-29
   next-session tasks, and summary into mobile-friendly visual sections.
 - Added optional quick-navigation chips for multi-section reports, using in-panel smooth
   scrolling and leaving downloaded text exports unchanged.
+- Prepared a GitHub Actions V2 validation workflow for Python syntax, question-bank validation,
+  FastAPI smoke tests, pnpm dependency install, and frontend production build. Remote publishing is
+  pending because GitHub requires a token with `workflow` scope to create `.github/workflows/*`.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
@@ -193,10 +196,11 @@ It is not yet ready for:
    - Add technical architecture.
    - Add development-loop explanation.
 
-2. GitHub Actions validation
-   - Run Python syntax check.
-   - Run `validate_question_bank.py`.
-   - Prevent broken changes from being deployed.
+2. CI follow-up
+   - Reauthorize GitHub CLI with `workflow` scope.
+   - Publish `.github/workflows/v2-checks.yml`.
+   - Confirm the first GitHub Actions run passes on GitHub.
+   - Add badges to README after the workflow is proven green.
 
 ## Medium-priority backlog
 
