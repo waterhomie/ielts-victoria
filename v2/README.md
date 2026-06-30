@@ -216,6 +216,9 @@ http://localhost:5173
 
 - Python compile check for the V2 backend modules.
 - PowerShell parse check for all V2 helper scripts.
+- GitHub Actions workflow file prepared locally for V2 Python validation, question-bank validation,
+  backend smoke test, frontend dependency install, and frontend production build. Publishing this
+  workflow requires a GitHub token with `workflow` scope.
 - Backend engine smoke test: start session -> identity answer -> Part 1 answer.
 - Local stack helper smoke test on alternate ports: backend health and frontend HTTP status.
 - Deployment smoke-check helper for backend/frontend URLs, CORS, question bank, and core API flow.
