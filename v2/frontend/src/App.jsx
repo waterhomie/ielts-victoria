@@ -823,6 +823,7 @@ export default function App() {
       } catch (err) {
         recorderRef.current?.cleanup?.();
         recorderRef.current = null;
+        setMode("text");
         setError(friendlyError(err, "Microphone permission was blocked."));
       }
       return;
@@ -854,6 +855,7 @@ export default function App() {
       recorderRef.current?.cleanup?.();
       recorderRef.current = null;
       setElapsed(0);
+      setMode("text");
       setError(friendlyError(err, "Recording could not be sent."));
       setBusy("");
     }
