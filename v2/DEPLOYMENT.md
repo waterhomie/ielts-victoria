@@ -63,6 +63,37 @@ Before sharing V2 publicly:
 5. Test iPhone Safari and WeChat in-app browser microphone behavior.
 6. Add a fallback typed-answer path when microphone permission is denied.
 
+## Deployment handoff checklist
+
+Use this order when V2 is ready to leave local development:
+
+1. Choose hosting providers:
+   - Frontend: Vercel / Netlify / Cloudflare Pages.
+   - Backend: Render / Railway / Fly.io / Google Cloud Run.
+2. Deploy the backend first with `API_KEY`, `BASE_URL`, `MODEL`, and safety-limit
+   environment variables configured server-side only.
+3. Temporarily set `CORS_ORIGINS` to the frontend preview domain during testing.
+4. Run the backend health check:
+
+```text
+https://your-backend-domain.com/api/health
+```
+
+5. Deploy the frontend with:
+
+```text
+VITE_API_BASE=https://your-backend-domain.com
+```
+
+6. Replace `CORS_ORIGINS` with the final frontend production domain.
+7. Run the deployment smoke-check script against both URLs.
+8. Test one full IELTS flow on desktop Chrome.
+9. Test microphone permission and recording on:
+   - iPhone Safari
+   - Android Chrome
+   - WeChat in-app browser, if the app will be shared there
+10. Keep the Streamlit app public until the above checks pass.
+
 ## Deployment smoke check
 
 After deploying both services, run:
