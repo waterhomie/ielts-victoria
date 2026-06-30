@@ -119,6 +119,8 @@ Last updated: 2026-06-29
 - Prepared a GitHub Actions V2 validation workflow for Python syntax, question-bank validation,
   FastAPI smoke tests, pnpm dependency install, and frontend production build. Remote publishing is
   pending because GitHub requires a token with `workflow` scope to create `.github/workflows/*`.
+- Added a live V2 practice-summary panel for answered turns, average WPM, timed duration,
+  and voice/text usage, with a compact 2x2 mobile layout.
 - Adjusted Part 3 question count:
   - Practice mode: about 6 main questions
   - Mock-test mode: about 4 main questions
