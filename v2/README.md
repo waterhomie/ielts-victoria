@@ -153,6 +153,12 @@ $env:MAX_TTS_CHARS="1200"
 python -m uvicorn v2.backend.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
+Backend environment variables are also listed in:
+
+```text
+v2/backend/.env.example
+```
+
 Manual backend smoke test:
 
 ```powershell
@@ -166,6 +172,12 @@ Manual frontend command:
 cd v2/frontend
 pnpm install
 pnpm run dev
+```
+
+Frontend deployment variables are listed in:
+
+```text
+v2/frontend/.env.example
 ```
 
 Open:
