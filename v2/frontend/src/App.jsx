@@ -333,6 +333,76 @@ function RichMessage({ content }) {
   );
 }
 
+function reportSectionMeta(title) {
+  const lowered = String(title || "").toLowerCase();
+  if (lowered.includes("band") || lowered.includes("overall")) {
+    return { label: "Score", tone: "score" };
+  }
+  if (lowered.includes("skill")) {
+    return { label: "Skills", tone: "skills" };
+  }
+  if (lowered.includes("problem") || lowered.includes("weakness")) {
+    return { label: "Issues", tone: "issues" };
+  }
+  if (lowered.includes("correct")) {
+    return { label: "Examples", tone: "examples" };
+  }
+  if (lowered.includes("task") || lowered.includes("focus")) {
+    return { label: "Next", tone: "tasks" };
+  }
+  if (lowered.includes("summary")) {
+    return { label: "Summary", tone: "summary" };
+  }
+  return { label: "Report", tone: "default" };
+}
+
+function splitReportSections(report) {
+  const text = String(report || "").replace(/\r\n/g, "\n").trim();
+  if (!text) return [];
+  const sections = [];
+  const headingRegex = /^##\s+(.+)$/gm;
+  const matches = [...text.matchAll(headingRegex)];
+
+  if (!matches.length) {
+    return [{ title: "Report", body: text, ...reportSectionMeta("Report") }];
+  }
+
+  const intro = text.slice(0, matches[0].index).trim();
+  if (intro) {
+    sections.push({ title: "Report note", body: intro, ...reportSectionMeta("Report note") });
+  }
+
+  matches.forEach((match, index) => {
+    const start = match.index + match[0].length;
+    const end = index + 1 < matches.length ? matches[index + 1].index : text.length;
+    const title = match[1].trim();
+    const body = text.slice(start, end).trim();
+    if (body) {
+      sections.push({ title, body, ...reportSectionMeta(title) });
+    }
+  });
+
+  return sections;
+}
+
+function ReportView({ report }) {
+  const sections = splitReportSections(report);
+  if (!sections.length) return null;
+  return (
+    <div className="report-sections">
+      {sections.map((section, index) => (
+        <section className={`report-section ${section.tone}`} key={`${section.title}-${index}`}>
+          <div className="report-section-header">
+            <span className="report-section-chip">{section.label}</span>
+            <h3>{section.title}</h3>
+          </div>
+          <RichMessage content={section.body} />
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function MessageBubble({ message }) {
   const isUser = message.role === "user";
   return (
@@ -878,7 +948,7 @@ export default function App() {
         {report ? (
           <section className="report-card">
             <h2>Final report</h2>
-            <RichMessage content={report} />
+            <ReportView report={report} />
             <div className="report-actions">
               <button type="button" className="ghost-button" onClick={downloadReport}>
                 Download report
