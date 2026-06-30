@@ -113,6 +113,15 @@ MODEL = get_secret("MODEL", "gpt-5.4-mini")
 TRANSCRIPTION_MODEL = get_secret("TRANSCRIPTION_MODEL", "whisper-1")
 
 
+def get_runtime_config_summary() -> dict[str, str | bool | None]:
+    return {
+        "api_key_configured": bool(API_KEY),
+        "base_url": BASE_URL,
+        "model": MODEL,
+        "transcription_model": TRANSCRIPTION_MODEL,
+    }
+
+
 def get_question_bank_summary() -> dict[str, int]:
     part1_secondary_question_count = sum(
         len(topic["questions"]) for topic in PART1_SECONDARY_TOPICS
