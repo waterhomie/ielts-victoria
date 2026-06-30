@@ -564,6 +564,15 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
+    healthCheck()
+      .then((health) => {
+        if (!cancelled) {
+          setHealthInfo(health);
+        }
+      })
+      .catch(() => {
+        // createFreshSession also performs a health check; this is only for restored sessions.
+      });
     fetchPracticeOptions()
       .then((options) => {
         if (!cancelled) {
