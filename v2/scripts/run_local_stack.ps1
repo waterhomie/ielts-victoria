@@ -99,7 +99,8 @@ $frontendCommand = @"
 if (Test-Path -LiteralPath '$nodeBin') {
     `$env:PATH = '$nodeBin;' + `$env:PATH
 }
-`$env:VITE_API_BASE = 'http://$(if ($lanIp) { $lanIp } else { "127.0.0.1" }):$BackendPort'
+`$env:VITE_API_BASE = ''
+`$env:VITE_PROXY_TARGET = 'http://127.0.0.1:$BackendPort'
 Set-Location -LiteralPath '$frontendRoot'
 & '$pnpm' exec vite --host 0.0.0.0 --port $FrontendPort
 "@
