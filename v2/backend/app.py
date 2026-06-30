@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import time
 from collections import defaultdict, deque
+import logging
 import os
 
 from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
@@ -28,6 +30,8 @@ from .schemas import (
     TTSRequest,
     TranscriptionResponse,
 )
+
+logger = logging.getLogger("examiner_victoria")
 
 
 def get_cors_origins() -> list[str]:
@@ -206,10 +210,24 @@ async def transcribe(
             ),
         )
     mime_type = file.content_type or content_type or "audio/wav"
-    try:
-        text = transcribe_audio(audio_bytes, mime_type)
-    except Exception as error:
-        raise HTTPException(status_code=502, detail=TRANSCRIPTION_FAILURE_MESSAGE) from error
+    last_error: Exception | None = None
+    for attempt in range(2):
+        try:
+            text = transcribe_audio(audio_bytes, mime_type)
+            break
+        except Exception as error:
+            last_error = error
+            logger.exception(
+                "Audio transcription failed: attempt=%s size=%s mime=%s error=%s",
+                attempt + 1,
+                len(audio_bytes),
+                mime_type,
+                error,
+            )
+            if attempt == 0:
+                await asyncio.sleep(0.8)
+    else:
+        raise HTTPException(status_code=502, detail=TRANSCRIPTION_FAILURE_MESSAGE) from last_error
     return TranscriptionResponse(text=text)
 
 
