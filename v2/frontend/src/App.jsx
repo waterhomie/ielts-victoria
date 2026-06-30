@@ -385,20 +385,48 @@ function splitReportSections(report) {
   return sections;
 }
 
+function reportSectionId(title, index) {
+  const slug = String(title || "section")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 42);
+  return `report-section-${index}-${slug || "section"}`;
+}
+
 function ReportView({ report }) {
   const sections = splitReportSections(report);
   if (!sections.length) return null;
   return (
     <div className="report-sections">
-      {sections.map((section, index) => (
-        <section className={`report-section ${section.tone}`} key={`${section.title}-${index}`}>
-          <div className="report-section-header">
-            <span className="report-section-chip">{section.label}</span>
-            <h3>{section.title}</h3>
-          </div>
-          <RichMessage content={section.body} />
-        </section>
-      ))}
+      {sections.length > 1 ? (
+        <nav className="report-nav" aria-label="Report sections">
+          {sections.map((section, index) => (
+            <button
+              type="button"
+              key={`${section.title}-nav-${index}`}
+              onClick={() => document.getElementById(reportSectionId(section.title, index))?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              })}
+            >
+              {section.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
+      {sections.map((section, index) => {
+        const sectionId = reportSectionId(section.title, index);
+        return (
+          <section className={`report-section ${section.tone}`} id={sectionId} key={`${section.title}-${index}`}>
+            <div className="report-section-header">
+              <span className="report-section-chip">{section.label}</span>
+              <h3>{section.title}</h3>
+            </div>
+            <RichMessage content={section.body} />
+          </section>
+        );
+      })}
     </div>
   );
 }
