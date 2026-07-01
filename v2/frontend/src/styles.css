@@ -862,10 +862,11 @@ button:not(:disabled):active {
   }
 
   .top-actions {
-    width: 154px;
+    width: 170px;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 5px;
+    column-gap: 8px;
+    row-gap: 7px;
     justify-content: stretch;
   }
 
@@ -877,13 +878,19 @@ button:not(:disabled):active {
 
   .practice-select {
     min-height: 31px;
-    padding: 0 8px;
-    gap: 4px;
+    min-width: 0;
+    padding: 0 7px;
+    gap: 3px;
   }
 
   .practice-select span,
   .practice-select select {
-    font-size: 12px;
+    font-size: 11.5px;
+  }
+
+  .practice-select select {
+    width: 100%;
+    min-width: 0;
   }
 
   .practice-select span {
