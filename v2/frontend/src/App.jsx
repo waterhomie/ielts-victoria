@@ -488,6 +488,7 @@ export default function App() {
   const recorderRef = useRef(null);
   const audioRef = useRef(null);
   const audioUrlRef = useRef("");
+  const audioUnlockedRef = useRef(false);
   const pendingSpeechUrlRef = useRef("");
   const lastRecordingRef = useRef(null);
   const startedAtRef = useRef(0);
@@ -806,7 +807,7 @@ export default function App() {
     try {
       const blob = await synthesizeSpeech(text);
       url = URL.createObjectURL(blob);
-      if (isLikelyIOSDevice()) {
+      if (isLikelyIOSDevice() && !audioUnlockedRef.current) {
         pendingSpeechUrlRef.current = url;
         setPendingSpeechUrl(url);
         setPendingSpeechText(text);
@@ -843,6 +844,7 @@ export default function App() {
     setPendingSpeechText("");
     try {
       await playAudioUrl(url);
+      audioUnlockedRef.current = true;
     } catch (_) {
       pendingSpeechUrlRef.current = url;
       setPendingSpeechUrl(url);
